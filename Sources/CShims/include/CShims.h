@@ -32,7 +32,7 @@ int32_t is_spaces_app_window_indexes(int32_t pid, int32_t *out_indexes, uint32_t
 
 /// Makes `window` of app `pid` the key window of the frontmost app through the WindowServer, the
 /// way a click on it would, without waiting for the app itself. Works for a window on a Space that
-/// is not visible yet: when InstantSpaces lands there, that window is already on top.
+/// is not visible yet: when Quicker lands there, that window is already on top.
 bool is_focus_window(int32_t pid, uint32_t window);
 
 // ---- Dock swipe (synthetic gesture + interception of the native one) ----
@@ -53,7 +53,7 @@ bool is_ds_tap_installed(void);
 void is_ds_set_intercept(bool enabled);
 void is_ds_set_swipe_handler(ISSwipeHandler handler);
 
-/// Marker stored in kCGEventSourceUserData of the mouse events InstantSpaces replays, so its own
+/// Marker stored in kCGEventSourceUserData of the mouse events Quicker replays, so its own
 /// event tap lets them through.
 #define IS_REPLAY_MARKER 0x49535250
 

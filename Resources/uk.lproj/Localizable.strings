@@ -1,11 +1,11 @@
 /* Status lines at the top of the menu */
-"status.tooltip.active" = "InstantSpaces — працює";
-"status.tooltip.inactive" = "InstantSpaces — не активний";
+"status.tooltip.active" = "Quicker — працює";
+"status.tooltip.inactive" = "Quicker — не активний";
 "status.needAccessibility" = "⚠️ Потрібен дозвіл «Універсальний доступ»";
 "status.grantAccessibility" = "Надати дозвіл…";
 "status.swipeReady" = "Свайп %ld пальцями між столами — миттєво";
 "status.swipeOff" = "⚠️ Системний свайп між столами вимкнено";
-"status.swipeOffHint" = "Увімкніть його: InstantSpaces перехоплює саме цей жест";
+"status.swipeOffHint" = "Увімкніть його: Quicker перехоплює саме цей жест";
 "status.openTrackpad" = "Відкрити налаштування трекпада…";
 
 /* Menu */
@@ -41,6 +41,6 @@
 
 /* Alerts */
 "alert.loginItem.title" = "Не вдалося змінити автозапуск";
-"alert.loginItem.message" = "%@\n\nПеренесіть InstantSpaces.app у папку «Програми» і спробуйте ще раз.";
-"alert.fatal.title" = "InstantSpaces не може працювати";
+"alert.loginItem.message" = "%@\n\nПеренесіть Quicker.app у папку «Програми» і спробуйте ще раз.";
+"alert.fatal.title" = "Quicker не може працювати";
 "alert.fatal.skylight" = "Приватний API SkyLight для читання Spaces недоступний на цій версії macOS.";

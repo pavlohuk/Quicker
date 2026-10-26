@@ -4,9 +4,9 @@ import CShims
 
 /// Makes a click on the Dock icon of an app whose windows are all on another space instant.
 ///
-/// Left alone, the click activates the app first, and only then can InstantSpaces follow it to its
+/// Left alone, the click activates the app first, and only then can Quicker follow it to its
 /// space: a noticeable delay, and macOS may give focus to another app on that space. Instead, the
-/// mouse-down on such an icon is held back, InstantSpaces switches to the app's space instantly,
+/// mouse-down on such an icon is held back, Quicker switches to the app's space instantly,
 /// and the click is then replayed to the Dock. The Dock finds the app's windows on the current
 /// space and simply activates it, exactly as for an app on the current desktop.
 final class DockClickInterceptor {

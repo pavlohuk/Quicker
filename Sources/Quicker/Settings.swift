@@ -36,7 +36,7 @@ enum HotkeyModifier: String, CaseIterable {
     }
 }
 
-/// User preferences, backed by UserDefaults (domain com.pavlohuk.InstantSpaces).
+/// User preferences, backed by UserDefaults (domain com.pavlohuk.Quicker).
 final class Settings {
     static let shared = Settings()
 

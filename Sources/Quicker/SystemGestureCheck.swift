@@ -1,6 +1,6 @@
 import AppKit
 
-/// The system's own "swipe between full-screen apps" gesture must stay ON: InstantSpaces
+/// The system's own "swipe between full-screen apps" gesture must stay ON: Quicker
 /// intercepts exactly the events that gesture produces and replaces them with instant switches.
 enum SystemGestureCheck {
     private static let domains = [

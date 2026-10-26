@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "InstantSpaces",
+    name: "Quicker",
     platforms: [.macOS(.v13)],
     targets: [
         .target(
@@ -14,7 +14,7 @@ let package = Package(
             ]
         ),
         .executableTarget(
-            name: "InstantSpaces",
+            name: "Quicker",
             dependencies: ["CShims"],
             linkerSettings: [
                 .linkedFramework("AppKit"),

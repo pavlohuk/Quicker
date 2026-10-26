@@ -22,8 +22,8 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         guard let button = item.button else { return }
         let ready = settings.enabled && (isInterceptActive?() ?? false)
         let symbol = ready ? "rectangle.2.swap" : "rectangle.slash"
-        let image = NSImage(systemSymbolName: symbol, accessibilityDescription: "InstantSpaces")
-            ?? NSImage(systemSymbolName: "arrow.left.arrow.right", accessibilityDescription: "InstantSpaces")
+        let image = NSImage(systemSymbolName: symbol, accessibilityDescription: "Quicker")
+            ?? NSImage(systemSymbolName: "arrow.left.arrow.right", accessibilityDescription: "Quicker")
         image?.isTemplate = true
         button.image = image
         button.toolTip = ready ? L("status.tooltip.active") : L("status.tooltip.inactive")
@@ -39,7 +39,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         menu.removeAllItems()
 
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
-        menu.addItem(header("InstantSpaces \(version)"))
+        menu.addItem(header("Quicker \(version)"))
 
         let granted = isAccessibilityGranted?() ?? false
         let fingers = SystemGestureCheck.systemSwipeFingers()
@@ -157,7 +157,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     }
     @objc private func openTrackpadSettings() { SystemGestureCheck.openTrackpadSettings() }
     @objc private func openAccessibility() {
-        // Re-asking puts InstantSpaces back into the Accessibility list if its entry was removed.
+        // Re-asking puts Quicker back into the Accessibility list if its entry was removed.
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         _ = AXIsProcessTrustedWithOptions(options)
         SystemGestureCheck.openAccessibilitySettings()

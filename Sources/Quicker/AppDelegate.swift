@@ -19,7 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var permissionTimer: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        log.notice("InstantSpaces launched, pid \(ProcessInfo.processInfo.processIdentifier)")
+        log.notice("Quicker launched, pid \(ProcessInfo.processInfo.processIdentifier)")
         AppDelegate.current = self
 
         guard is_spaces_available() else {
@@ -120,8 +120,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: fallback)
     }
 
-    /// Any space change, including ones InstantSpaces did not make (Mission Control, Dock clicks,
-    /// the animated system switch when InstantSpaces is turned off).
+    /// Any space change, including ones Quicker did not make (Mission Control, Dock clicks,
+    /// the animated system switch when Quicker is turned off).
     @objc private func activeSpaceDidChange() {
         guard let landed = switcher.snapshot(usePrediction: false) else { return }
         log.info("active space changed to \(landed.current + 1) of \(landed.count)")

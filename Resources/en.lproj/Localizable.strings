@@ -1,11 +1,11 @@
 /* Status lines at the top of the menu */
-"status.tooltip.active" = "InstantSpaces is active";
-"status.tooltip.inactive" = "InstantSpaces is not active";
+"status.tooltip.active" = "Quicker is active";
+"status.tooltip.inactive" = "Quicker is not active";
 "status.needAccessibility" = "⚠️ Accessibility permission is required";
 "status.grantAccessibility" = "Grant Permission…";
 "status.swipeReady" = "%ld-finger swipe between desktops is instant";
 "status.swipeOff" = "⚠️ The system swipe between desktops is off";
-"status.swipeOffHint" = "Turn it on: InstantSpaces intercepts that gesture";
+"status.swipeOffHint" = "Turn it on: Quicker intercepts that gesture";
 "status.openTrackpad" = "Open Trackpad Settings…";
 
 /* Menu */
@@ -41,6 +41,6 @@
 
 /* Alerts */
 "alert.loginItem.title" = "Couldn’t change launch at login";
-"alert.loginItem.message" = "%@\n\nMove InstantSpaces.app to the Applications folder and try again.";
-"alert.fatal.title" = "InstantSpaces can’t run";
+"alert.loginItem.message" = "%@\n\nMove Quicker.app to the Applications folder and try again.";
+"alert.fatal.title" = "Quicker can’t run";
 "alert.fatal.skylight" = "The private SkyLight API for reading Spaces isn’t available on this version of macOS.";

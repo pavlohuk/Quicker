@@ -5,9 +5,9 @@ cd "$(dirname "$0")/.."
 
 Scripts/build-app.sh
 
-pkill -x InstantSpaces 2>/dev/null || true
+pkill -x Quicker 2>/dev/null || true
 sleep 0.5
-rm -rf "/Applications/InstantSpaces.app"
-cp -R "build/InstantSpaces.app" "/Applications/InstantSpaces.app"
-open "/Applications/InstantSpaces.app"
-echo "Installed and launched /Applications/InstantSpaces.app"
+rm -rf "/Applications/Quicker.app"
+cp -R "build/Quicker.app" "/Applications/Quicker.app"
+open "/Applications/Quicker.app"
+echo "Installed and launched /Applications/Quicker.app"

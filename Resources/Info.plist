@@ -10,15 +10,15 @@
 		<string>uk</string>
 	</array>
 	<key>CFBundleExecutable</key>
-	<string>InstantSpaces</string>
+	<string>Quicker</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.pavlohuk.InstantSpaces</string>
+	<string>com.pavlohuk.Quicker</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>InstantSpaces</string>
+	<string>Quicker</string>
 	<key>CFBundleDisplayName</key>
-	<string>InstantSpaces</string>
+	<string>Quicker</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
