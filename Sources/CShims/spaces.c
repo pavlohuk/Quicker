@@ -12,6 +12,7 @@ typedef CFArrayRef (*f_copyspaces)(int);
 typedef uint64_t (*f_getcur)(int, CFStringRef);
 typedef CFStringRef (*f_activedisp)(int);
 typedef CFArrayRef (*f_spaces_for_windows)(int, int, CFArrayRef);
+typedef int (*f_is_ordered_in)(int, uint32_t, uint8_t *);
 
 static struct {
     int tried;
@@ -21,6 +22,7 @@ static struct {
     f_getcur get_current;
     f_activedisp active_display;
     f_spaces_for_windows spaces_for_windows;
+    f_is_ordered_in is_ordered_in;
 } S;
 
 static bool load_sl(void) {
@@ -33,6 +35,7 @@ static bool load_sl(void) {
     S.get_current    = (f_getcur)dlsym(h, "SLSManagedDisplayGetCurrentSpace");
     S.active_display = (f_activedisp)dlsym(h, "SLSCopyActiveMenuBarDisplayIdentifier");
     S.spaces_for_windows = (f_spaces_for_windows)dlsym(h, "SLSCopySpacesForWindows");
+    S.is_ordered_in = (f_is_ordered_in)dlsym(h, "SLSWindowIsOrderedIn");
     if (!cid || !S.copy_spaces || !S.get_current) { dlclose(h); return false; }
     S.conn = cid();
     S.handle = h;
@@ -163,6 +166,13 @@ int32_t is_spaces_app_window_indexes(int32_t pid, int32_t *out_indexes, int32_t 
         CFNumberRef an = CFDictionaryGetValue(w, CFSTR("kCGWindowAlpha"));
         if (an) CFNumberGetValue(an, kCFNumberDoubleType, &alpha);
         if (alpha <= 0) continue;
+
+        // A closed, hidden or minimized window keeps its Space but is ordered out. Counting it
+        // would make an app look present on a Space where nothing of it is shown.
+        if (S.is_ordered_in) {
+            uint8_t ordered_in = 1;
+            if (S.is_ordered_in(S.conn, (uint32_t)wid, &ordered_in) == 0 && !ordered_in) continue;
+        }
 
         CFArrayRef one = CFArrayCreate(NULL, (const void **)&wn, 1, &kCFTypeArrayCallBacks);
         CFArrayRef ws = S.spaces_for_windows(S.conn, 0x7, one);

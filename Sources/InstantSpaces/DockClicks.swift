@@ -12,7 +12,6 @@ import CShims
 final class DockClickInterceptor {
     private let switcher: SpaceSwitcher
     private let systemWide = AXUIElementCreateSystemWide()
-    private var bundleIDs: [URL: String] = [:]
     private var orientation: (value: String, at: Date)?
 
     private struct Pending {
@@ -136,15 +135,25 @@ final class DockClickInterceptor {
         var urlValue: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, kAXURLAttribute as CFString, &urlValue) == .success,
               let raw = urlValue, CFGetTypeID(raw) == CFURLGetTypeID() else { return nil }
-        let url = (raw as! CFURL) as URL
-        guard let bundleID = bundleID(of: url) else { return nil }
-        return NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first
+        return runningApp(at: (raw as! CFURL) as URL)
     }
 
-    private func bundleID(of url: URL) -> String? {
-        if let cached = bundleIDs[url] { return cached }
-        let id = Bundle(url: url)?.bundleIdentifier
-        if let id { bundleIDs[url] = id }
-        return id
+    /// Matches by location, not bundle identifier: copies of one app (for example "Telegram" and
+    /// "Telegram Work") share an identifier but are separate processes with separate windows.
+    private func runningApp(at url: URL) -> NSRunningApplication? {
+        let path = Self.canonicalPath(url)
+        if let match = NSWorkspace.shared.runningApplications.first(where: { app in
+            app.bundleURL.map(Self.canonicalPath) == path
+        }) {
+            return match
+        }
+        // Fall back to the identifier only when it is unambiguous.
+        guard let id = Bundle(url: url)?.bundleIdentifier else { return nil }
+        let candidates = NSRunningApplication.runningApplications(withBundleIdentifier: id)
+        return candidates.count == 1 ? candidates[0] : nil
+    }
+
+    private static func canonicalPath(_ url: URL) -> String {
+        url.resolvingSymlinksInPath().standardizedFileURL.path
     }
 }
