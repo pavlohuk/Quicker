@@ -27,6 +27,8 @@ final class DockClickInterceptor {
     private let edgeBand: CGFloat = 180
     /// Longest wait for the switch to land before the click is replayed anyway.
     private let replayTimeout: TimeInterval = 0.4
+    /// Time between focusing the app's window and switching to its Space (see `SpaceSwitcher.prefocusLead`).
+    private let prefocusLead = SpaceSwitcher.prefocusLead
 
     init(switcher: SpaceSwitcher) {
         self.switcher = switcher
@@ -54,12 +56,18 @@ final class DockClickInterceptor {
               let state = switcher.snapshot() else { return false }
 
         var buffer = [Int32](repeating: 0, count: 64)
-        let found = Int(is_spaces_app_window_indexes(app.processIdentifier, &buffer, Int32(buffer.count)))
+        var windows = [UInt32](repeating: 0, count: 64)
+        let found = Int(is_spaces_app_window_indexes(app.processIdentifier, &buffer, &windows, Int32(buffer.count)))
         let indexes = buffer.prefix(found).map(Int.init)
         guard let target = indexes.first, !indexes.contains(state.current) else { return false }
 
+        // Put the app's window on top of its Space before going there, so the Space does not
+        // first appear with another app's window in front.
+        let focused = is_focus_window(app.processIdentifier, windows[0])
         let name = app.localizedName ?? "pid \(app.processIdentifier)"
-        guard switcher.jump(toSpaceIndex: target, reason: "dock \(name)") else { return false }
+        // The WindowServer needs a moment to reorder the window before the Space appears.
+        guard switcher.jump(toSpaceIndex: target, reason: "dock \(name)\(focused ? "" : " (no prefocus)")",
+                            after: focused ? prefocusLead : 0) else { return false }
         pending = Pending(location: location, flags: flags, target: target)
         scheduleReplay(after: replayTimeout)
         return true

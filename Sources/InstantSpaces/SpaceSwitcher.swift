@@ -36,6 +36,13 @@ struct SpaceSnapshot {
 /// The Dock itself performs the switch, so windows of the previous space are hidden properly and
 /// full-screen app spaces work like any other space.
 final class SpaceSwitcher {
+    /// Time between asking the WindowServer to put an app's window in front and switching to its
+    /// Space. Measured on macOS 27 with Arc and Calendar windows buried under other apps: with no
+    /// wait the window was sometimes still underneath when the Space appeared; with 15 ms it
+    /// occasionally was; with 30 ms it was on top within about a frame of landing every time, and
+    /// waiting longer did not help further.
+    static let prefocusLead: TimeInterval = 0.03
+
     /// Called with the space the user ends up on as soon as a switch is requested, before the Dock
     /// has finished. `switched` is false when nothing had to move (edge reached, already there).
     var onShowSpace: ((_ snapshot: SpaceSnapshot, _ switched: Bool) -> Void)?
@@ -90,11 +97,13 @@ final class SpaceSwitcher {
     }
 
     /// Jumps straight to the space at `index` (0-based, Dock order, full-screen spaces included).
+    /// With a `delay`, the target is reserved right away (so `snapshot()` already reports it) and
+    /// the swipes are posted after the delay.
     @discardableResult
-    func jump(toSpaceIndex index: Int, reason: String) -> Bool {
+    func jump(toSpaceIndex index: Int, reason: String, after delay: TimeInterval = 0) -> Bool {
         guard let state = snapshot(), index >= 0, index < state.count else { return false }
         if index == state.current { return true }
-        return move(state, to: index, reason: reason)
+        return move(state, to: index, reason: reason, after: delay)
     }
 
     /// Spaces of the display under the cursor. Right after our own switch, `current` is the
@@ -121,14 +130,22 @@ final class SpaceSwitcher {
 
     // MARK: Private
 
-    private func move(_ state: SpaceSnapshot, to target: Int, reason: String) -> Bool {
+    private func move(_ state: SpaceSnapshot, to target: Int, reason: String, after delay: TimeInterval = 0) -> Bool {
         let direction: Int32 = target > state.current ? 1 : -1
         let steps = abs(target - state.current)
-        for _ in 0..<steps {
-            guard is_ds_post_switch(direction) else {
-                log.error("could not post the synthetic swipe")
-                return false
+        let post = {
+            for _ in 0..<steps {
+                guard is_ds_post_switch(direction) else {
+                    log.error("could not post the synthetic swipe")
+                    return false
+                }
             }
+            return true
+        }
+        if delay > 0 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { _ = post() }
+        } else if !post() {
+            return false
         }
         predicted = (state.display, target, Date())
         log.notice("switch \(reason, privacy: .public): space \(state.current + 1) -> \(target + 1) of \(state.count)")

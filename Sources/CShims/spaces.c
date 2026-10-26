@@ -118,7 +118,7 @@ bool is_spaces_info(ISSpaceInfo *out) {
     return ok;
 }
 
-int32_t is_spaces_app_window_indexes(int32_t pid, int32_t *out_indexes, int32_t max) {
+int32_t is_spaces_app_window_indexes(int32_t pid, int32_t *out_indexes, uint32_t *out_windows, int32_t max) {
     if (!out_indexes || max <= 0 || pid <= 0 || !load_sl() || !S.spaces_for_windows) return 0;
 
     // Space ids of the display under the cursor, in Dock order.
@@ -185,7 +185,10 @@ int32_t is_spaces_app_window_indexes(int32_t pid, int32_t *out_indexes, int32_t 
                 if (ids[k] != sid) continue;
                 bool seen = false;
                 for (int32_t m = 0; m < written; m++) if (out_indexes[m] == (int32_t)k) { seen = true; break; }
-                if (!seen) out_indexes[written++] = (int32_t)k;
+                if (!seen) {
+                    if (out_windows) out_windows[written] = (uint32_t)wid;
+                    out_indexes[written++] = (int32_t)k;
+                }
                 break;
             }
         }
@@ -193,4 +196,46 @@ int32_t is_spaces_app_window_indexes(int32_t pid, int32_t *out_indexes, int32_t 
     }
     CFRelease(windows);
     return written;
+}
+
+// ---- Focusing another app's window ----
+//
+// Same calls yabai (MIT) uses to focus a window: make the owning process frontmost with that
+// window, then post the two event records a click on the window would generate to make it key.
+
+typedef struct { uint32_t high, low; } is_psn;
+typedef int (*f_set_front)(is_psn *, uint32_t, uint32_t);
+typedef int (*f_post_record)(is_psn *, uint8_t *);
+typedef int (*f_psn_for_pid)(pid_t, is_psn *);
+
+bool is_focus_window(int32_t pid, uint32_t window) {
+    static f_set_front set_front;
+    static f_post_record post_record;
+    static f_psn_for_pid psn_for_pid;
+    static int tried;
+    if (!tried) {
+        tried = 1;
+        if (load_sl()) {
+            set_front = (f_set_front)dlsym(S.handle, "_SLPSSetFrontProcessWithOptions");
+            post_record = (f_post_record)dlsym(S.handle, "SLPSPostEventRecordTo");
+        }
+        psn_for_pid = (f_psn_for_pid)dlsym(RTLD_DEFAULT, "GetProcessForPID");
+    }
+    if (!set_front || !post_record || !psn_for_pid || pid <= 0 || window == 0) return false;
+
+    is_psn psn = {0, 0};
+    if (psn_for_pid(pid, &psn) != 0) return false;
+    const uint32_t kUserGenerated = 0x200;
+    if (set_front(&psn, window, kUserGenerated) != 0) return false;
+
+    for (uint8_t kind = 1; kind <= 2; kind++) {
+        uint8_t record[0xf8] = {0};
+        record[0x04] = 0xf8;
+        record[0x08] = kind;
+        record[0x3a] = 0x10;
+        memset(record + 0x20, 0xff, 0x10);
+        memcpy(record + 0x3c, &window, sizeof(window));
+        post_record(&psn, record);
+    }
+    return true;
 }

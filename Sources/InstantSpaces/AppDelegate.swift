@@ -74,14 +74,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let state = switcher.snapshot() else { return }
 
         var buffer = [Int32](repeating: 0, count: 64)
-        let found = Int(is_spaces_app_window_indexes(app.processIdentifier, &buffer, Int32(buffer.count)))
+        var windows = [UInt32](repeating: 0, count: 64)
+        let found = Int(is_spaces_app_window_indexes(app.processIdentifier, &buffer, &windows, Int32(buffer.count)))
         let indexes = buffer.prefix(found).map(Int.init)
         // No windows on this display, or already visible here (includes the app that macOS
         // activates on its own after one of our switches lands).
         guard let target = indexes.first, !indexes.contains(state.current) else { return }
 
+        // Put the app's window on top of its Space before going there; otherwise the Space first
+        // appears with another app's window in front and the picked one rises a moment later.
+        let focused = is_focus_window(app.processIdentifier, windows[0])
         let name = app.localizedName ?? "pid \(app.processIdentifier)"
-        guard switcher.jump(toSpaceIndex: target, reason: "app \(name)") else { return }
+        // The WindowServer needs a moment to reorder the window before the Space appears.
+        guard switcher.jump(toSpaceIndex: target, reason: "app \(name)\(focused ? "" : " (no prefocus)")",
+                            after: focused ? SpaceSwitcher.prefocusLead : 0) else { return }
         pendingFocus = (app, target)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in self?.completeFocus() }
     }

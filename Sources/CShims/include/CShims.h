@@ -26,7 +26,14 @@ bool is_spaces_info(ISSpaceInfo *out);
 
 /// Indexes (into the cursor display's space list) of the spaces holding normal windows of app
 /// `pid`, most recently used window first, without duplicates. Returns how many were written.
-int32_t is_spaces_app_window_indexes(int32_t pid, int32_t *out_indexes, int32_t max);
+/// When `out_windows` is not NULL it receives, for each of those spaces, the id of the app's
+/// most recently used window there.
+int32_t is_spaces_app_window_indexes(int32_t pid, int32_t *out_indexes, uint32_t *out_windows, int32_t max);
+
+/// Makes `window` of app `pid` the key window of the frontmost app through the WindowServer, the
+/// way a click on it would, without waiting for the app itself. Works for a window on a Space that
+/// is not visible yet: when InstantSpaces lands there, that window is already on top.
+bool is_focus_window(int32_t pid, uint32_t window);
 
 // ---- Dock swipe (synthetic gesture + interception of the native one) ----
 
