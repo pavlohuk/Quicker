@@ -18,14 +18,6 @@ struct SpaceSnapshot {
 
     var count: Int { types.count }
 
-    /// Indexes of ordinary desktops (not full-screen apps), in Dock order.
-    var desktops: [Int] { types.indices.filter { types[$0] == 0 } }
-
-    /// 1-based desktop number of the space at `index`, counting ordinary desktops only, or nil.
-    func desktopNumber(at index: Int) -> Int? {
-        desktops.firstIndex(of: index).map { $0 + 1 }
-    }
-
     func with(current: Int) -> SpaceSnapshot {
         SpaceSnapshot(display: display, current: current, types: types, pids: pids)
     }
@@ -88,28 +80,27 @@ final class SpaceSwitcher {
         return move(state, to: target, reason: step == .next ? "next" : "previous")
     }
 
-    /// True when desktop `number` (1-based, counting ordinary desktops only) exists.
-    func hasDesktop(_ number: Int) -> Bool {
+    /// True when there is a space at position `number` (1-based, Dock order).
+    func hasSpace(at number: Int) -> Bool {
         guard let state = snapshot() else { return false }
-        return number >= 1 && number <= state.desktops.count
+        return number >= 1 && number <= state.count
     }
 
-    /// Jumps straight to desktop `number` (1-based, counting ordinary desktops only, like the
-    /// "Desktop N" labels in Mission Control). Returns false when there is no such desktop.
+    /// Jumps straight to the space at position `number` (1-based, Dock order, full-screen apps
+    /// included, as in the Spaces bar of Mission Control). Returns false when there is none.
     @discardableResult
-    func jump(toDesktop number: Int) -> Bool {
+    func jump(toPosition number: Int) -> Bool {
         guard let state = snapshot() else { return false }
-        let desktops = state.desktops
-        guard number >= 1, number <= desktops.count else {
-            log.debug("no desktop \(number), only \(desktops.count)")
+        guard number >= 1, number <= state.count else {
+            log.debug("no space \(number), only \(state.count)")
             return false
         }
-        let target = desktops[number - 1]
+        let target = number - 1
         if target == state.current {
             onShowSpace?(state, false)
             return true
         }
-        return move(state, to: target, reason: "desktop \(number)")
+        return move(state, to: target, reason: "space \(number)")
     }
 
     /// Jumps straight to the space at `index` (0-based, Dock order, full-screen spaces included).

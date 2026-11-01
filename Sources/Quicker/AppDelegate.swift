@@ -326,9 +326,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         if settings.hotkeyDigits, let number = Hotkeys.digits[keycode] {
-            // No such desktop: let the key through so the app's own shortcut still works.
-            if isRepeat { return switcher.hasDesktop(number) }
-            let jumped = switcher.jump(toDesktop: number)
+            // No such space: let the key through so the app's own shortcut still works.
+            if isRepeat { return switcher.hasSpace(at: number) }
+            let jumped = switcher.jump(toPosition: number)
             if jumped { dropPendingFocus() }
             return jumped
         }

@@ -140,11 +140,11 @@ final class SpaceIndicator {
         return image
     }
 
-    /// The desktop's number for desktops, the app name for full-screen spaces.
+    /// The space's position (what ⌘N jumps to) for desktops, the app name for full-screen spaces.
     static func name(of index: Int, in snapshot: SpaceSnapshot) -> String {
         switch snapshot.types[index] {
         case 0:
-            return String(snapshot.desktopNumber(at: index) ?? index + 1)
+            return String(index + 1)
         case 4:
             let pid = snapshot.pids[index]
             if pid > 0, let name = NSRunningApplication(processIdentifier: pid)?.localizedName { return name }

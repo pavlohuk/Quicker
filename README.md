@@ -3,7 +3,7 @@
 A macOS menu bar app that makes switching between Spaces **instant, without the slide animation**.
 
 - **Trackpad swipe.** The system three- or four-finger swipe between desktops switches immediately.
-- **Hotkeys.** ⌘1…⌘9 jumps straight to desktop N, and ⌘←/⌘→ moves to the neighbouring Space.
+- **Hotkeys.** ⌘1…⌘9 jumps straight to the Nth Space, and ⌘←/⌘→ moves to the neighbouring Space.
 - **Following apps.** ⌘Tab or a Dock click on an app whose windows are on another Space jumps there instantly.
 - **Indicator.** After every switch, a small overlay at the top of the screen names the Space you landed on.
 
@@ -59,7 +59,7 @@ The synthetic swipe technique comes from [InstantSpaceSwitcher](https://github.c
 
 ### Hotkeys
 
-- **⌘1 … ⌘9** jumps straight to desktop N. Only regular desktops are counted, matching the "Desktop 1, Desktop 2…" labels in Mission Control, so full-screen apps are skipped. If there is no desktop N, the keystroke goes to the frontmost app as usual.
+- **⌘1 … ⌘9** jumps straight to the Nth Space, counted in the order of the Spaces bar in Mission Control with full-screen apps included. If there is no Nth Space, the keystroke goes to the frontmost app as usual.
 - **⌘← / ⌘→** moves to the neighbouring Space. Full-screen apps are included, in the same order as the swipe.
 
 A jump across several Spaces is a burst of instant swipes, so it has no animation either. Holding an arrow key does not repeat the switch.
