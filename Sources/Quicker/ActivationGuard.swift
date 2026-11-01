@@ -17,6 +17,8 @@ final class ActivationGuard: NSObject {
 
     /// ⌘ is held after a ⌘Tab: the app switcher is open.
     private var switcherOpen = false
+    /// How far Tab and ⇧Tab moved the switcher's selection; nil once it moved some other way.
+    private var steps: Int? = 0
     /// When ⌘ was released after a ⌘Tab; the pick is activated right after that.
     private var switcherClosedAt: Date?
     private var lastSpaceChange = Date.distantPast
@@ -55,18 +57,30 @@ final class ActivationGuard: NSObject {
 
     /// The ⌘Tab app switcher is on screen; ⌘←/→ and ⌘1…9 belong to it then.
     var isSwitcherOpen: Bool { switcherOpen }
+    /// Apps the ⌘Tab selection moved past, counted from the frontmost one, if known.
+    var switcherSteps: Int? { steps }
 
     /// Every key-down, from the event tap.
-    func keyDown(keycode: Int32, flags: CGEventFlags) {
+    func keyDown(keycode: Int32, flags: CGEventFlags, isRepeat: Bool) {
+        if isRepeat {
+            // A held Tab keeps moving the selection.
+            if switcherOpen { steps = nil }
+            return
+        }
         if !flags.contains(.maskCommand) {
             // ⌘ was released without us seeing it (the tap was off for a moment).
             switcherOpen = false
         } else if keycode == Hotkeys.tab {
+            if !switcherOpen { steps = 0 }
+            steps = steps.map { $0 + (flags.contains(.maskShift) ? -1 : 1) }
             switcherOpen = true
             switcherClosedAt = nil
         } else if keycode == Hotkeys.escape, switcherOpen {
             // ⌘Esc closes the switcher without picking anything.
             switcherOpen = false
+        } else if switcherOpen {
+            // Arrows and other keys move the selection in ways not tracked here.
+            steps = nil
         }
     }
 

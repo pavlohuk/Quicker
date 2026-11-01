@@ -211,6 +211,8 @@ static ISSwipeHandler g_handler = NULL;
 static ISKeyHandler g_key_handler = NULL;
 static ISMouseHandler g_mouse_handler = NULL;
 static ISFlagsHandler g_flags_handler = NULL;
+static CGEventRef g_held_flags[8];      // modifier changes held back by the flags handler, in order
+static unsigned g_held_flags_count = 0;
 static uint8_t g_swallowed_keys[128];  // key-downs we swallowed, so their key-ups are swallowed too
 static bool g_tracking = false;
 static bool g_fired = false;
@@ -325,8 +327,15 @@ static CGEventRef tap_callback(CGEventTapProxy proxy, CGEventType type, CGEventR
     }
 
     if (type == kCGEventFlagsChanged) {
-        if (g_flags_handler) g_flags_handler((uint64_t)CGEventGetFlags(event));
-        return event;
+        if (!g_flags_handler) return event;
+        if (CGEventGetIntegerValueField(event, kCGEventSourceUserData) == IS_REPLAY_MARKER) return event;
+        bool hold = g_flags_handler((uint64_t)CGEventGetFlags(event));
+        if (!hold) return event;
+        if (g_held_flags_count == sizeof(g_held_flags) / sizeof(g_held_flags[0])) return event;
+        CGEventRef copy = CGEventCreateCopy(event);
+        if (!copy) return event;
+        g_held_flags[g_held_flags_count++] = copy;
+        return NULL;
     }
 
     if (type == kCGEventLeftMouseDown || type == kCGEventLeftMouseUp) {
@@ -437,3 +446,12 @@ void is_ds_set_swipe_handler(ISSwipeHandler handler) { g_handler = handler; }
 void is_ds_set_key_handler(ISKeyHandler handler) { g_key_handler = handler; }
 void is_ds_set_mouse_handler(ISMouseHandler handler) { g_mouse_handler = handler; }
 void is_ds_set_flags_handler(ISFlagsHandler handler) { g_flags_handler = handler; }
+
+void is_ds_release_held_flags(void) {
+    for (unsigned i = 0; i < g_held_flags_count; i++) {
+        CGEventSetIntegerValueField(g_held_flags[i], kCGEventSourceUserData, IS_REPLAY_MARKER);
+        CGEventPost(kCGHIDEventTap, g_held_flags[i]);
+        CFRelease(g_held_flags[i]);
+    }
+    g_held_flags_count = 0;
+}

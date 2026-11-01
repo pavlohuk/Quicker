@@ -17,6 +17,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// App picked with ⌘Tab or in the Dock whose space we jumped to; it must end up frontmost there.
     private var pendingFocus: (app: NSRunningApplication, target: Int)?
     private var focusWork: DispatchWorkItem?
+    private let switcherSelection = SwitcherSelection()
+    /// ⌘ was released on a full-screen Space after ⌘Tab, and the release is held back until
+    /// Quicker has switched to the picked app's Space.
+    private var heldRelease: (app: NSRunningApplication, target: Int)?
+    private var releaseWork: DispatchWorkItem?
     private var signalSources: [DispatchSourceSignal] = []
     private var permissionTimer: Timer?
 
@@ -40,7 +45,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             AppDelegate.current?.handleKey(keycode: keycode, flags: flags, isRepeat: isRepeat) ?? false
         }
         is_ds_set_flags_handler { flags in
-            AppDelegate.current?.activationGuard.flagsChanged(CGEventFlags(rawValue: flags))
+            AppDelegate.current?.handleFlags(CGEventFlags(rawValue: flags)) ?? false
         }
         is_ds_set_mouse_handler { down, x, y, flags in
             AppDelegate.current?.dockClicks.handle(down: down, location: CGPoint(x: x, y: y), flags: flags) ?? false
@@ -114,6 +119,66 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         expectFocus(app, on: target, after: 0.6)
     }
 
+    /// Every modifier change, from the event tap. Returns true to hold the event back.
+    private func handleFlags(_ flags: CGEventFlags) -> Bool {
+        // Later modifier changes wait behind the held release, so they reach apps in order.
+        if heldRelease != nil { return true }
+        let closing = activationGuard.isSwitcherOpen && !flags.contains(.maskCommand)
+        activationGuard.flagsChanged(flags)
+        return closing && preemptSwitcherPick()
+    }
+
+    /// ⌘ is being released after ⌘Tab. Leaving a full-screen Space this way makes macOS slide to
+    /// the picked app's Space as soon as it activates the app, whatever the system option says,
+    /// and following the activation afterwards is too late to stop that slide. So the release is
+    /// held back: Quicker reads the selected app from the switcher, switches to its Space
+    /// instantly, and only then lets ⌘ go. macOS then finds the app on the current Space and
+    /// simply activates it. Returns true when the release is held.
+    private func preemptSwitcherPick() -> Bool {
+        let settings = Settings.shared
+        guard settings.enabled, settings.followActivatedApp, is_ds_tap_installed(),
+              !SystemGestureCheck.systemSwitchOnActivateEnabled(),
+              let state = switcher.snapshot(), state.types[state.current] == 4,
+              let app = switcherSelection.selectedApp(steps: activationGuard.switcherSteps),
+              app.processIdentifier != ProcessInfo.processInfo.processIdentifier else { return false }
+
+        var buffer = [Int32](repeating: 0, count: 64)
+        var windows = [UInt32](repeating: 0, count: 64)
+        let found = Int(is_spaces_app_window_indexes(app.processIdentifier, &buffer, &windows, Int32(buffer.count)))
+        let indexes = buffer.prefix(found).map(Int.init)
+        guard let target = indexes.first, !indexes.contains(state.current) else { return false }
+
+        let name = app.localizedName ?? "pid \(app.processIdentifier)"
+        if case .skip(let reason) = activationGuard.verdict(for: app, picked: true, switching: switcher.isLanding) {
+            log.notice("not following \(name, privacy: .public) to space \(target + 1): \(reason, privacy: .public)")
+            return false
+        }
+        let focused = is_focus_window(app.processIdentifier, windows[0])
+        guard switcher.jump(toSpaceIndex: target, reason: "app \(name) (⌘Tab from full screen)\(focused ? "" : " (no prefocus)")",
+                            after: focused ? SpaceSwitcher.prefocusLead : 0) else { return false }
+        activationGuard.didFollow()
+        heldRelease = (app, target)
+        scheduleRelease(after: 0.4)
+        return true
+    }
+
+    private func scheduleRelease(after delay: TimeInterval) {
+        releaseWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.releaseHeldFlags() }
+        releaseWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+    }
+
+    private func releaseHeldFlags() {
+        releaseWork?.cancel()
+        releaseWork = nil
+        guard let held = heldRelease else { return }
+        heldRelease = nil
+        is_ds_release_held_flags()
+        // If the switcher closed during the switch, ⌘ activates nothing; give the app focus then.
+        expectFocus(held.app, on: held.target, after: 0.3)
+    }
+
     /// After a switch made for `app`, make sure it ends up frontmost on `target`. Checked once
     /// the switch lands, or after `delay` at the latest.
     private func expectFocus(_ app: NSRunningApplication, on target: Int, after delay: TimeInterval) {
@@ -174,6 +239,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         log.info("active space changed to \(landed.current + 1) of \(landed.count)")
         switcher.spaceDidChange(landed)
         dockClicks.spaceDidChange(to: landed.current)
+        if let held = heldRelease, held.target == landed.current {
+            scheduleRelease(after: 0.03)
+        }
         if let focus = pendingFocus, focus.target == landed.current {
             // Let macOS finish its own activation for the new space first.
             scheduleFocusCheck(after: 0.12)
@@ -241,7 +309,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// modifier+←/→ and modifier+1…9. Returns true when the key was ours and must be swallowed.
     private func handleKey(keycode: Int32, flags: UInt64, isRepeat: Bool) -> Bool {
-        if !isRepeat { activationGuard.keyDown(keycode: keycode, flags: CGEventFlags(rawValue: flags)) }
+        activationGuard.keyDown(keycode: keycode, flags: CGEventFlags(rawValue: flags), isRepeat: isRepeat)
 
         let settings = Settings.shared
         guard settings.enabled, Hotkeys.modifiersMatch(flags, settings.hotkeyModifier) else { return false }

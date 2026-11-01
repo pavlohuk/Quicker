@@ -53,7 +53,7 @@ bool is_ds_tap_installed(void);
 void is_ds_set_intercept(bool enabled);
 void is_ds_set_swipe_handler(ISSwipeHandler handler);
 
-/// Marker stored in kCGEventSourceUserData of the mouse events Quicker replays, so its own
+/// Marker stored in kCGEventSourceUserData of the mouse and modifier events Quicker replays, so its own
 /// event tap lets them through.
 #define IS_REPLAY_MARKER 0x49535250
 
@@ -68,9 +68,12 @@ typedef bool (*ISKeyHandler)(int32_t keycode, uint64_t flags, bool is_repeat);
 void is_ds_set_key_handler(ISKeyHandler handler);
 
 /// Called from the event tap whenever the held modifiers change (`flags` are CGEventFlags).
-/// The event always passes through.
-typedef void (*ISFlagsHandler)(uint64_t flags);
+/// Return true to hold the event back until `is_ds_release_held_flags`. Replayed events are not
+/// reported.
+typedef bool (*ISFlagsHandler)(uint64_t flags);
 void is_ds_set_flags_handler(ISFlagsHandler handler);
+/// Posts the modifier changes held back by the flags handler, in their original order.
+void is_ds_release_held_flags(void);
 
 #ifdef __cplusplus
 }

@@ -213,12 +213,12 @@ final class DockClickInterceptor {
         var urlValue: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, kAXURLAttribute as CFString, &urlValue) == .success,
               let raw = urlValue, CFGetTypeID(raw) == CFURLGetTypeID() else { return nil }
-        return runningApp(at: (raw as! CFURL) as URL)
+        return Self.runningApp(at: (raw as! CFURL) as URL)
     }
 
     /// Matches by location, not bundle identifier: copies of one app (for example "Telegram" and
     /// "Telegram Work") share an identifier but are separate processes with separate windows.
-    private func runningApp(at url: URL) -> NSRunningApplication? {
+    static func runningApp(at url: URL) -> NSRunningApplication? {
         let path = Self.canonicalPath(url)
         if let match = NSWorkspace.shared.runningApplications.first(where: { app in
             app.bundleURL.map(Self.canonicalPath) == path
