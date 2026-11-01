@@ -46,6 +46,12 @@ final class SpaceIndicator {
         stack.edgeInsets = NSEdgeInsets(top: 14, left: 24, bottom: 15, right: 24)
         stack.translatesAutoresizingMaskIntoConstraints = false
         stack.widthAnchor.constraint(greaterThanOrEqualToConstant: 120).isActive = true
+        // Inside the glass view the stack does not grow to fit its views across, so the dots
+        // overflowed with many spaces and long names reached the edges. Keep both inside the insets.
+        for view in [titleLabel, dots] {
+            view.leadingAnchor.constraint(greaterThanOrEqualTo: stack.leadingAnchor, constant: stack.edgeInsets.left).isActive = true
+            view.trailingAnchor.constraint(lessThanOrEqualTo: stack.trailingAnchor, constant: -stack.edgeInsets.right).isActive = true
+        }
         content = Self.background(around: stack)
     }
 
@@ -62,6 +68,8 @@ final class SpaceIndicator {
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.animationBehavior = .none
+        // Like the volume HUD, which keeps white text in both light and dark mode.
+        panel.appearance = NSAppearance(named: .darkAqua)
         return panel
     }
 
@@ -72,7 +80,11 @@ final class SpaceIndicator {
     private static func background(around content: NSView) -> NSView {
         if #available(macOS 26.0, *) {
             let glass = NSGlassEffectView()
-            glass.style = .regular
+            // The look of the system's volume and brightness HUDs. Measured beside the volume HUD
+            // on a light wallpaper and over a dark window, private variant 9 matched its colour
+            // within a few RGB steps on both, while no public style with a fixed tint did.
+            let hudVariant = NSSelectorFromString("set_variant:")
+            if glass.responds(to: hudVariant) { glass.setValue(9, forKey: "_variant") }
             glass.cornerRadius = cornerRadius
             glass.contentView = content
             return glass
