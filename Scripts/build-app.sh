@@ -10,6 +10,12 @@ APP="build/Quicker.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp ".build/release/Quicker" "$APP/Contents/MacOS/Quicker"
+# SwiftPM records the deployment target as the SDK version too, so macOS treats the app as built
+# for macOS 13 and draws it in the old style (no Liquid Glass). Record the SDK it was built with.
+SDK_VERSION="$(xcrun --sdk macosx --show-sdk-version)"
+MIN_VERSION="$(/usr/libexec/PlistBuddy -c 'Print LSMinimumSystemVersion' Resources/Info.plist)"
+vtool -set-build-version macos "$MIN_VERSION" "$SDK_VERSION" -replace \
+    -output "$APP/Contents/MacOS/Quicker" "$APP/Contents/MacOS/Quicker"
 cp "Resources/Info.plist" "$APP/Contents/Info.plist"
 cp -R Resources/*.lproj "$APP/Contents/Resources/"
 printf 'APPL????' > "$APP/Contents/PkgInfo"

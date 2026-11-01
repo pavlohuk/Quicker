@@ -35,9 +35,7 @@
 "position.bottomLeft" = "Bottom Left";
 
 /* Space indicator */
-"indicator.desktop" = "Desktop %ld";
 "indicator.fullscreenApp" = "Full-Screen App";
-"indicator.space" = "Space %ld";
 
 /* Alerts */
 "alert.loginItem.title" = "Couldn’t change launch at login";

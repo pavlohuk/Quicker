@@ -20,7 +20,9 @@ enum IndicatorCorner: String, CaseIterable {
 
 /// Small HUD at the top of the screen (or in a corner) that names the space the user is on after a switch.
 final class SpaceIndicator {
-    private let panel: NSPanel
+    /// Recreated for every show, see `show`.
+    private var panel: NSPanel?
+    private let content: NSView
     private let titleLabel = NSTextField(labelWithString: "")
     private let dots = SpaceDotsView()
     private var hideWork: DispatchWorkItem?
@@ -31,27 +33,6 @@ final class SpaceIndicator {
     private let margin: CGFloat = 12
 
     init() {
-        panel = IndicatorPanel(contentRect: NSRect(x: 0, y: 0, width: 140, height: 60),
-                               styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: true)
-        panel.isFloatingPanel = true
-        panel.level = .statusBar
-        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
-        panel.ignoresMouseEvents = true
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.hasShadow = true
-        panel.hidesOnDeactivate = false
-        panel.isReleasedWhenClosed = false
-        panel.animationBehavior = .none
-
-        let background = NSVisualEffectView()
-        background.material = .hudWindow
-        background.blendingMode = .behindWindow
-        background.state = .active
-        background.wantsLayer = true
-        background.layer?.cornerRadius = 14
-        background.layer?.masksToBounds = true
-
         titleLabel.font = .systemFont(ofSize: 17, weight: .semibold)
         titleLabel.textColor = .labelColor
         titleLabel.alignment = .center
@@ -62,17 +43,55 @@ final class SpaceIndicator {
         stack.orientation = .vertical
         stack.alignment = .centerX
         stack.spacing = 8
-        stack.edgeInsets = NSEdgeInsets(top: 12, left: 20, bottom: 13, right: 20)
+        stack.edgeInsets = NSEdgeInsets(top: 14, left: 24, bottom: 15, right: 24)
         stack.translatesAutoresizingMaskIntoConstraints = false
-        background.addSubview(stack)
+        stack.widthAnchor.constraint(greaterThanOrEqualToConstant: 120).isActive = true
+        content = Self.background(around: stack)
+    }
+
+    private static func makePanel() -> NSPanel {
+        let panel = IndicatorPanel(contentRect: NSRect(x: 0, y: 0, width: 140, height: 60),
+                                   styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: true)
+        panel.isFloatingPanel = true
+        panel.level = .statusBar
+        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
+        panel.ignoresMouseEvents = true
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = false
+        panel.hidesOnDeactivate = false
+        panel.isReleasedWhenClosed = false
+        panel.animationBehavior = .none
+        return panel
+    }
+
+    private static let cornerRadius: CGFloat = 22
+
+    /// Liquid Glass like the system's own HUDs (volume, brightness) on macOS 26 and later, a
+    /// blurred HUD material before that.
+    private static func background(around content: NSView) -> NSView {
+        if #available(macOS 26.0, *) {
+            let glass = NSGlassEffectView()
+            glass.style = .regular
+            glass.cornerRadius = cornerRadius
+            glass.contentView = content
+            return glass
+        }
+        let blur = NSVisualEffectView()
+        blur.material = .hudWindow
+        blur.blendingMode = .behindWindow
+        blur.state = .active
+        // The blur behind the window ignores the layer's corner radius and fills the corners
+        // with a square backdrop; only a mask image clips it.
+        blur.maskImage = roundedMask(radius: cornerRadius)
+        blur.addSubview(content)
         NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: background.leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: background.trailingAnchor),
-            stack.topAnchor.constraint(equalTo: background.topAnchor),
-            stack.bottomAnchor.constraint(equalTo: background.bottomAnchor),
-            background.widthAnchor.constraint(greaterThanOrEqualToConstant: 120),
+            content.leadingAnchor.constraint(equalTo: blur.leadingAnchor),
+            content.trailingAnchor.constraint(equalTo: blur.trailingAnchor),
+            content.topAnchor.constraint(equalTo: blur.topAnchor),
+            content.bottomAnchor.constraint(equalTo: blur.bottomAnchor),
         ])
-        panel.contentView = background
+        return blur
     }
 
     func show(_ snapshot: SpaceSnapshot, corner: IndicatorCorner) {
@@ -80,55 +99,70 @@ final class SpaceIndicator {
         titleLabel.stringValue = Self.name(of: snapshot.current, in: snapshot)
         dots.update(types: snapshot.types, current: snapshot.current)
 
-        guard let content = panel.contentView else { return }
-        content.layoutSubtreeIfNeeded()
-        let size = content.fittingSize
-        panel.setFrame(frame(for: size, corner: corner), display: true)
-
         // Appear instantly; only the disappearance is animated.
         generation += 1
         hideWork?.cancel()
-        panel.alphaValue = 1
-        // A panel still on screen from a full-screen space stays tied to that space and is not
-        // drawn on the desktop we switched to, so take it off screen and order it in afresh.
-        if panel.isVisible { panel.orderOut(nil) }
+        // A panel reused across switches loses its place on every space: after a while macOS keeps
+        // it on only a few of them (seen: the full-screen space and the desktop next to it) and it
+        // is not drawn anywhere else. A fresh panel joins all spaces, so build one for every show.
+        if let old = panel {
+            old.orderOut(nil)
+            old.contentView = nil
+        }
+        let panel = Self.makePanel()
+        self.panel = panel
+        panel.contentView = content
+        content.layoutSubtreeIfNeeded()
+        panel.setFrame(frame(for: content.fittingSize, corner: corner), display: true)
         panel.orderFrontRegardless()
 
         let shown = generation
         let title = titleLabel.stringValue
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
             guard let self, shown == self.generation else { return }
-            log.info("indicator '\(title, privacy: .public)': visible=\(self.panel.occlusionState.contains(.visible)) onActiveSpace=\(self.panel.isOnActiveSpace) alpha=\(Double(self.panel.alphaValue))")
+            log.info("indicator '\(title, privacy: .public)': visible=\(panel.occlusionState.contains(.visible)) onActiveSpace=\(panel.isOnActiveSpace)")
         }
         let work = DispatchWorkItem { [weak self] in self?.hide(ifStill: shown) }
         hideWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + visibleFor, execute: work)
     }
 
-    /// "Desktop N" for desktops, the app name for full-screen spaces.
+    /// A stretchable rounded rectangle: the corners keep their radius at any size.
+    private static func roundedMask(radius: CGFloat) -> NSImage {
+        let side = radius * 2 + 1
+        let image = NSImage(size: NSSize(width: side, height: side), flipped: false) { rect in
+            NSColor.black.setFill()
+            NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).fill()
+            return true
+        }
+        image.capInsets = NSEdgeInsets(top: radius, left: radius, bottom: radius, right: radius)
+        image.resizingMode = .stretch
+        return image
+    }
+
+    /// The desktop's number for desktops, the app name for full-screen spaces.
     static func name(of index: Int, in snapshot: SpaceSnapshot) -> String {
         switch snapshot.types[index] {
         case 0:
-            return L("indicator.desktop", snapshot.desktopNumber(at: index) ?? index + 1)
+            return String(snapshot.desktopNumber(at: index) ?? index + 1)
         case 4:
             let pid = snapshot.pids[index]
             if pid > 0, let name = NSRunningApplication(processIdentifier: pid)?.localizedName { return name }
             return L("indicator.fullscreenApp")
         default:
-            return L("indicator.space", index + 1)
+            return String(index + 1)
         }
     }
 
     // MARK: Private
 
     private func hide(ifStill shown: Int) {
-        guard shown == generation else { return }
+        guard shown == generation, let panel else { return }
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = fadeOut
             panel.animator().alphaValue = 0
-        }, completionHandler: { [weak self] in
-            guard let self, shown == self.generation else { return }
-            self.panel.orderOut(nil)
+        }, completionHandler: {
+            panel.orderOut(nil)
         })
     }
 
@@ -155,6 +189,9 @@ final class SpaceIndicator {
 private final class IndicatorPanel: NSPanel {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
+    /// Liquid Glass in a window without active appearance is drawn flat and frosted. This panel
+    /// is never key, so claim active appearance (private AppKit hook) to get the full glass.
+    @objc var _hasActiveAppearance: Bool { true }
 }
 
 /// One mark per space in Dock order: a dot for a desktop, a short pill for a full-screen app.

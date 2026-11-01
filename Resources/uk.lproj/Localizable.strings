@@ -35,9 +35,7 @@
 "position.bottomLeft" = "Унизу ліворуч";
 
 /* Space indicator */
-"indicator.desktop" = "Стіл %ld";
 "indicator.fullscreenApp" = "Повноекранна програма";
-"indicator.space" = "Простір %ld";
 
 /* Alerts */
 "alert.loginItem.title" = "Не вдалося змінити автозапуск";
