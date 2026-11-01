@@ -13,8 +13,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var pendingIndicator: SpaceSnapshot?
     private var pendingFallback: DispatchWorkItem?
     private lazy var dockClicks = DockClickInterceptor(switcher: switcher)
-    /// App activated with ⌘Tab whose space we jumped to; it must end up frontmost there.
+    private let activationGuard = ActivationGuard()
+    /// App picked with ⌘Tab or in the Dock whose space we jumped to; it must end up frontmost there.
     private var pendingFocus: (app: NSRunningApplication, target: Int)?
+    private var focusWork: DispatchWorkItem?
     private var signalSources: [DispatchSourceSignal] = []
     private var permissionTimer: Timer?
 
@@ -27,11 +29,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
+        // Applies to every Accessibility call Quicker makes. The main thread also serves the
+        // event tap, so an app that does not answer must not hold it for the default 6 s.
+        AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), 0.2)
+
         is_ds_set_swipe_handler { direction in
             AppDelegate.current?.handleNativeSwipe(direction: Int(direction))
         }
         is_ds_set_key_handler { keycode, flags, isRepeat in
             AppDelegate.current?.handleKey(keycode: keycode, flags: flags, isRepeat: isRepeat) ?? false
+        }
+        is_ds_set_flags_handler { flags in
+            AppDelegate.current?.activationGuard.flagsChanged(CGEventFlags(rawValue: flags))
         }
         is_ds_set_mouse_handler { down, x, y, flags in
             AppDelegate.current?.dockClicks.handle(down: down, location: CGPoint(x: x, y: y), flags: flags) ?? false
@@ -47,6 +56,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         switcher.onShowSpace = { [weak self] snapshot, switched in
             self?.spaceRequested(snapshot, switched: switched)
         }
+        dockClicks.onClickHandled = { [weak self] app, target, replayed in
+            // The replayed click activates the app itself; check a little later that it did.
+            self?.expectFocus(app, on: target, after: replayed ? 0.3 : 0.05)
+        }
         NSWorkspace.shared.notificationCenter.addObserver(
             self, selector: #selector(activeSpaceDidChange),
             name: NSWorkspace.activeSpaceDidChangeNotification, object: nil)
@@ -60,15 +73,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: Follow the activated app
 
-    /// ⌘Tab, a Dock click or anything else activated an app. If none of its windows is on the
-    /// current space, jump instantly to the space with its most recent window, which is what the
-    /// system's own (animated) "switch to a Space with open windows" option would do.
+    /// ⌘Tab or anything else activated an app. If none of its windows is on the current space,
+    /// jump instantly to the space with its most recent window, which is what the system's own
+    /// (animated) "switch to a Space with open windows" option would do. Activations macOS makes
+    /// on its own are not followed (see `ActivationGuard`).
     @objc private func appDidActivate(_ notification: Notification) {
-        let settings = Settings.shared
-        guard settings.enabled, settings.followActivatedApp, is_ds_tap_installed(),
-              let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+        guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
               app.processIdentifier != ProcessInfo.processInfo.processIdentifier
         else { return }
+        // Taken for every activation, so a ⌘Tab pick can never be spent on a later one.
+        let picked = activationGuard.takeSwitcherPick()
+
+        let settings = Settings.shared
+        guard settings.enabled, settings.followActivatedApp, is_ds_tap_installed() else { return }
         // With the system option on, the Dock is already sliding there; a second switch would collide.
         guard !SystemGestureCheck.systemSwitchOnActivateEnabled() else { return }
         guard let state = switcher.snapshot() else { return }
@@ -81,24 +98,53 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // activates on its own after one of our switches lands).
         guard let target = indexes.first, !indexes.contains(state.current) else { return }
 
+        let name = app.localizedName ?? "pid \(app.processIdentifier)"
+        if case .skip(let reason) = activationGuard.verdict(for: app, picked: picked, switching: switcher.isLanding) {
+            log.notice("not following \(name, privacy: .public) to space \(target + 1): \(reason, privacy: .public)")
+            return
+        }
+
         // Put the app's window on top of its Space before going there; otherwise the Space first
         // appears with another app's window in front and the picked one rises a moment later.
         let focused = is_focus_window(app.processIdentifier, windows[0])
-        let name = app.localizedName ?? "pid \(app.processIdentifier)"
         // The WindowServer needs a moment to reorder the window before the Space appears.
-        guard switcher.jump(toSpaceIndex: target, reason: "app \(name)\(focused ? "" : " (no prefocus)")",
+        guard switcher.jump(toSpaceIndex: target, reason: "app \(name)\(picked ? " (⌘Tab)" : "")\(focused ? "" : " (no prefocus)")",
                             after: focused ? SpaceSwitcher.prefocusLead : 0) else { return }
+        activationGuard.didFollow()
+        expectFocus(app, on: target, after: 0.6)
+    }
+
+    /// After a switch made for `app`, make sure it ends up frontmost on `target`. Checked once
+    /// the switch lands, or after `delay` at the latest.
+    private func expectFocus(_ app: NSRunningApplication, on target: Int, after delay: TimeInterval) {
         pendingFocus = (app, target)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in self?.completeFocus() }
+        scheduleFocusCheck(after: delay)
+    }
+
+    private func scheduleFocusCheck(after delay: TimeInterval) {
+        focusWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.completeFocus() }
+        focusWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+    }
+
+    /// The user switched by other means: whatever focus was owed to an earlier pick is void.
+    private func dropPendingFocus() {
+        focusWork?.cancel()
+        focusWork = nil
+        pendingFocus = nil
     }
 
     /// Landing on a space makes macOS activate the app with the topmost window there, which may
-    /// not be the app the user picked with ⌘Tab. Give focus back to the picked app.
+    /// not be the app the user picked. Give focus back to the picked app, but only on the space
+    /// we went to: activating it anywhere else would pull the user back to its space.
     private func completeFocus() {
+        focusWork = nil
         guard let focus = pendingFocus else { return }
         pendingFocus = nil
         let pid = focus.app.processIdentifier
-        guard NSWorkspace.shared.frontmostApplication?.processIdentifier != pid, !focus.app.isTerminated else { return }
+        guard !focus.app.isTerminated, NSWorkspace.shared.frontmostApplication?.processIdentifier != pid,
+              let landed = switcher.snapshot(usePrediction: false), landed.current == focus.target else { return }
         let element = AXUIElementCreateApplication(pid)
         let result = AXUIElementSetAttributeValue(element, kAXFrontmostAttribute as CFString, kCFBooleanTrue)
         log.info("refocused \(focus.app.localizedName ?? "pid \(pid)", privacy: .public): \(result.rawValue)")
@@ -123,12 +169,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Any space change, including ones Quicker did not make (Mission Control, Dock clicks,
     /// the animated system switch when Quicker is turned off).
     @objc private func activeSpaceDidChange() {
+        activationGuard.spaceDidChange()
         guard let landed = switcher.snapshot(usePrediction: false) else { return }
         log.info("active space changed to \(landed.current + 1) of \(landed.count)")
+        switcher.spaceDidChange(landed)
         dockClicks.spaceDidChange(to: landed.current)
         if let focus = pendingFocus, focus.target == landed.current {
             // Let macOS finish its own activation for the new space first.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in self?.completeFocus() }
+            scheduleFocusCheck(after: 0.12)
         }
         if let pending = pendingIndicator {
             // Intermediate hops of a multi-space jump are skipped.
@@ -187,24 +235,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func handleNativeSwipe(direction: Int) {
         var step: SpaceStep = direction > 0 ? .next : .previous
         if Settings.shared.invertDirection { step = step == .next ? .previous : .next }
+        dropPendingFocus()
         switcher.perform(step)
     }
 
     /// modifier+←/→ and modifier+1…9. Returns true when the key was ours and must be swallowed.
     private func handleKey(keycode: Int32, flags: UInt64, isRepeat: Bool) -> Bool {
+        if !isRepeat { activationGuard.keyDown(keycode: keycode, flags: CGEventFlags(rawValue: flags)) }
+
         let settings = Settings.shared
         guard settings.enabled, Hotkeys.modifiersMatch(flags, settings.hotkeyModifier) else { return false }
+        // While the ⌘Tab switcher is open, arrows move its selection.
+        guard !activationGuard.isSwitcherOpen else { return false }
 
         if settings.hotkeyArrows, keycode == Hotkeys.leftArrow || keycode == Hotkeys.rightArrow {
             // Auto-repeat would fire a burst of switches; swallow it without acting.
-            if !isRepeat { switcher.perform(keycode == Hotkeys.rightArrow ? .next : .previous) }
+            if !isRepeat {
+                dropPendingFocus()
+                switcher.perform(keycode == Hotkeys.rightArrow ? .next : .previous)
+            }
             return true
         }
 
         if settings.hotkeyDigits, let number = Hotkeys.digits[keycode] {
             // No such desktop: let the key through so the app's own shortcut still works.
             if isRepeat { return switcher.hasDesktop(number) }
-            return switcher.jump(toDesktop: number)
+            let jumped = switcher.jump(toDesktop: number)
+            if jumped { dropPendingFocus() }
+            return jumped
         }
         return false
     }

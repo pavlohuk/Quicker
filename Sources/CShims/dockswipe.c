@@ -30,9 +30,11 @@
 #include <ApplicationServices/ApplicationServices.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <mach/mach_time.h>
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/sysctl.h>
+#include <unistd.h>
 
 // ---- Undocumented CGEvent fields and constants ----
 
@@ -61,6 +63,13 @@ static const uint16_t kGestureFlavorDockPrimary = 3;
 static const double kTinyProgress = 0.000016;
 static const double kFlingVelocityModern = 9999.0;   // payload is 16.16 fixed point (max ~32767)
 static const double kFlingVelocityLegacy = 2000.0;
+
+/// Stored in kCGEventSourceUserData of the swipe events Quicker posts.
+static const int64_t kSwipeMarker = 0x49535357;
+/// Our own swipes come back through the tap within milliseconds of being posted.
+static const CFTimeInterval kOwnEventWindow = 1.0;
+/// A tracked native swipe that has gone silent this long is over, even without an ended event.
+static const CFTimeInterval kTrackingTimeout = 2.0;
 
 // ---- OS / preference helpers ----
 
@@ -201,16 +210,19 @@ static bool g_intercept = true;
 static ISSwipeHandler g_handler = NULL;
 static ISKeyHandler g_key_handler = NULL;
 static ISMouseHandler g_mouse_handler = NULL;
+static ISFlagsHandler g_flags_handler = NULL;
 static uint8_t g_swallowed_keys[128];  // key-downs we swallowed, so their key-ups are swallowed too
 static bool g_tracking = false;
 static bool g_fired = false;
-static unsigned g_own_events_pending = 0;
+static CFAbsoluteTime g_tracking_at = 0;   // last event of the tracked native swipe
+static unsigned g_companions_pending = 0;  // our companion gesture events not seen back yet
 static CFAbsoluteTime g_last_post = 0;
 
 static bool post_phase(int phase, int direction) {
     const double sign = post_sign(direction);
     CGEventRef ev = CGEventCreate(NULL);
     if (!ev) return false;
+    CGEventSetIntegerValueField(ev, kCGEventSourceUserData, kSwipeMarker);
     CGEventSetIntegerValueField(ev, kFieldEventType, kEventDockControl);
     CGEventSetIntegerValueField(ev, kFieldGestureHIDType, kHIDDockSwipe);
     CGEventSetIntegerValueField(ev, kFieldGesturePhase, phase);
@@ -220,7 +232,6 @@ static bool post_phase(int phase, int direction) {
     if (!requires_augmentation()) {
         CGEventSetDoubleValueField(ev, kFieldSwipeVelocityX, sign * kFlingVelocityLegacy);
         CGEventSetDoubleValueField(ev, kFieldSwipeVelocityY, sign * kFlingVelocityLegacy);
-        if (g_tap) g_own_events_pending += 1;
         CGEventPost(kCGSessionEventTap, ev);
         CFRelease(ev);
         return true;
@@ -240,9 +251,10 @@ static bool post_phase(int phase, int direction) {
     // The Dock ignores a DockControl event without a companion gesture event.
     CGEventRef companion = CGEventCreate(NULL);
     if (!companion) { CFRelease(augmented); return false; }
+    CGEventSetIntegerValueField(companion, kCGEventSourceUserData, kSwipeMarker);
     CGEventSetIntegerValueField(companion, kFieldEventType, kEventGesture);
 
-    if (g_tap) g_own_events_pending += 2;
+    if (g_tap) g_companions_pending += 1;
     CGEventPost(kCGSessionEventTap, augmented);
     CGEventPost(kCGSessionEventTap, companion);
     CFRelease(augmented);
@@ -265,12 +277,55 @@ static void fire(double value) {
     if (g_handler) g_handler(value > 0.0 ? 1 : -1);
 }
 
+static void reset_tracking(void) {
+    g_tracking = false;
+    g_fired = false;
+}
+
+/// True while a native swipe is being swallowed. A swipe whose ended event never arrived (for
+/// example because the tap was disabled meanwhile) stops counting after a while, so it cannot
+/// keep swallowing the gesture events of pinches and other swipes forever.
+static bool tracking(void) {
+    if (g_tracking && CFAbsoluteTimeGetCurrent() - g_tracking_at > kTrackingTimeout) reset_tracking();
+    return g_tracking;
+}
+
+/// One of the swipe events Quicker posted, coming back through the tap.
+///
+/// On macOS 27 they come back with source pid 0, like the trackpad's own events, so a count of
+/// expected events is not enough: real events of the swipe still in progress arrive first, use up
+/// the count and slip through to the Dock, which then animates. Instead each event is recognised
+/// by its marker, its pid, or what it carries: the tiny progress of a Dock swipe event, or the
+/// empty body of a companion gesture event.
+static bool is_own_event(CGEventRef event, int64_t event_type) {
+    if (CGEventGetIntegerValueField(event, kCGEventSourceUserData) == kSwipeMarker) return true;
+    if (CGEventGetIntegerValueField(event, kCGEventSourceUnixProcessID) == (int64_t)getpid()) return true;
+    if (CFAbsoluteTimeGetCurrent() - g_last_post > kOwnEventWindow) {
+        g_companions_pending = 0;
+        return false;
+    }
+    if (event_type == kEventDockControl) {
+        // kTinyProgress, either as posted or after a round trip through 16.16 fixed point.
+        double progress = fabs(CGEventGetDoubleValueField(event, kFieldSwipeProgress));
+        return progress > 1.4e-5 && progress < 1.8e-5;
+    }
+    return g_companions_pending > 0 && CGEventGetIntegerValueField(event, kFieldGestureHIDType) == 0;
+}
+
 static CGEventRef tap_callback(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void *refcon) {
     (void)proxy; (void)refcon;
 
     if (type == kCGEventTapDisabledByTimeout || type == kCGEventTapDisabledByUserInput) {
         if (g_tap) CGEventTapEnable(g_tap, true);
-        g_own_events_pending = 0;
+        // Whatever was in progress was missed while the tap was off.
+        g_companions_pending = 0;
+        reset_tracking();
+        memset(g_swallowed_keys, 0, sizeof(g_swallowed_keys));
+        return event;
+    }
+
+    if (type == kCGEventFlagsChanged) {
+        if (g_flags_handler) g_flags_handler((uint64_t)CGEventGetFlags(event));
         return event;
     }
 
@@ -294,6 +349,9 @@ static CGEventRef tap_callback(CGEventTapProxy proxy, CGEventType type, CGEventR
             g_swallowed_keys[keycode] = 1;
             return NULL;
         }
+        // A key-down we let through starts a fresh press: its key-up must reach the app, even if
+        // the key-up of an earlier swallowed press got lost.
+        if (!is_repeat) g_swallowed_keys[keycode] = 0;
         return event;
     }
 
@@ -301,13 +359,15 @@ static CGEventRef tap_callback(CGEventTapProxy proxy, CGEventType type, CGEventR
     if (event_type != kEventDockControl && event_type != kEventGesture) return event;
 
     // Our own synthetic events come straight back through this tap; let them reach the Dock.
-    if (g_own_events_pending > 0 && CFAbsoluteTimeGetCurrent() - g_last_post > 1.0) g_own_events_pending = 0;
-    if (g_own_events_pending > 0) { g_own_events_pending--; return event; }
+    if (is_own_event(event, event_type)) {
+        if (event_type == kEventGesture && g_companions_pending > 0) g_companions_pending--;
+        return event;
+    }
     if (CGEventGetIntegerValueField(event, kCGEventSourceUnixProcessID) != 0) return event;  // not from the trackpad
 
     if (!g_intercept) return event;
 
-    if (event_type == kEventGesture) return g_tracking ? NULL : event;  // companion of a swallowed swipe
+    if (event_type == kEventGesture) return tracking() ? NULL : event;  // companion of a swallowed swipe
 
     if (CGEventGetIntegerValueField(event, kFieldGestureHIDType) != kHIDDockSwipe) return event;
     if (CGEventGetIntegerValueField(event, kFieldSwipeMotion) != kMotionHorizontal) return event;
@@ -316,21 +376,22 @@ static CGEventRef tap_callback(CGEventTapProxy proxy, CGEventType type, CGEventR
     case kPhaseBegan:
         g_tracking = true;
         g_fired = false;
+        g_tracking_at = CFAbsoluteTimeGetCurrent();
         return NULL;
 
     case kPhaseChanged: {
-        if (!g_tracking) return event;
+        if (!tracking()) return event;
+        g_tracking_at = CFAbsoluteTimeGetCurrent();
         double progress = CGEventGetDoubleValueField(event, kFieldSwipeProgress);
         if (!g_fired && progress != 0.0) fire(progress);
         return NULL;
     }
 
     case kPhaseEnded: {
-        if (!g_tracking) return event;
+        if (!tracking()) return event;
         double velocity = CGEventGetDoubleValueField(event, kFieldSwipeVelocityX);
         if (!g_fired && velocity != 0.0) fire(velocity);
-        g_tracking = false;
-        g_fired = false;
+        reset_tracking();
         if (requires_augmentation()) {
             // macOS 27: the Dock needs the real ended event to close its gesture state.
             // Zero the motion so it does not switch a second time.
@@ -343,19 +404,18 @@ static CGEventRef tap_callback(CGEventTapProxy proxy, CGEventType type, CGEventR
     }
 
     case kPhaseCancelled:
-        g_tracking = false;
-        g_fired = false;
+        reset_tracking();
         return NULL;
 
     default:
-        return g_tracking ? NULL : event;
+        return tracking() ? NULL : event;
     }
 }
 
 bool is_ds_tap_install(void) {
     if (g_tap) return true;
     CGEventMask mask = (1ULL << kEventGesture) | (1ULL << kEventDockControl)
-        | CGEventMaskBit(kCGEventKeyDown) | CGEventMaskBit(kCGEventKeyUp)
+        | CGEventMaskBit(kCGEventKeyDown) | CGEventMaskBit(kCGEventKeyUp) | CGEventMaskBit(kCGEventFlagsChanged)
         | CGEventMaskBit(kCGEventLeftMouseDown) | CGEventMaskBit(kCGEventLeftMouseUp);
     g_tap = CGEventTapCreate(kCGSessionEventTap, kCGHeadInsertEventTap, kCGEventTapOptionDefault, mask, tap_callback, NULL);
     if (!g_tap) return false;
@@ -372,7 +432,8 @@ bool is_ds_tap_install(void) {
 }
 
 bool is_ds_tap_installed(void) { return g_tap != NULL; }
-void is_ds_set_intercept(bool enabled) { g_intercept = enabled; if (!enabled) { g_tracking = false; g_fired = false; } }
+void is_ds_set_intercept(bool enabled) { g_intercept = enabled; if (!enabled) reset_tracking(); }
 void is_ds_set_swipe_handler(ISSwipeHandler handler) { g_handler = handler; }
 void is_ds_set_key_handler(ISKeyHandler handler) { g_key_handler = handler; }
 void is_ds_set_mouse_handler(ISMouseHandler handler) { g_mouse_handler = handler; }
+void is_ds_set_flags_handler(ISFlagsHandler handler) { g_flags_handler = handler; }

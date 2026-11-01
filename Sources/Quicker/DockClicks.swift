@@ -13,8 +13,14 @@ final class DockClickInterceptor {
     private let switcher: SpaceSwitcher
     private let systemWide = AXUIElementCreateSystemWide()
     private var orientation: (value: String, at: Date)?
+    private var dock: (app: NSRunningApplication, element: AXUIElement)?
+
+    /// Called once the held click has been dealt with, so the app can be given focus if the
+    /// click did not do it.
+    var onClickHandled: ((_ app: NSRunningApplication, _ target: Int, _ replayed: Bool) -> Void)?
 
     private struct Pending {
+        let app: NSRunningApplication
         let location: CGPoint
         let flags: CGEventFlags
         let target: Int
@@ -32,10 +38,12 @@ final class DockClickInterceptor {
 
     init(switcher: SpaceSwitcher) {
         self.switcher = switcher
-        AXUIElementSetMessagingTimeout(systemWide, 0.15)
     }
 
     /// Left mouse events from the event tap. Returns true to swallow the event.
+    ///
+    /// Runs inside the event tap: until it returns, no input reaches any app, so the cheap
+    /// checks come first and nothing here may wait on another app.
     func handle(down: Bool, location: CGPoint, flags rawFlags: UInt64) -> Bool {
         if !down {
             // The mouse-up of a held click is replayed together with its mouse-down.
@@ -47,12 +55,13 @@ final class DockClickInterceptor {
         if pending != nil { return true }
 
         let settings = Settings.shared
-        guard settings.enabled, settings.followActivatedApp, is_ds_tap_installed(),
-              !SystemGestureCheck.systemSwitchOnActivateEnabled() else { return false }
+        guard settings.enabled, settings.followActivatedApp, is_ds_tap_installed() else { return false }
         // ⌘-click (show in Finder), ⌥-click (hide others), ⌃-click (menu): leave to the Dock.
         let flags = CGEventFlags(rawValue: rawFlags)
-        guard flags.intersection([.maskCommand, .maskControl, .maskAlternate, .maskShift]).isEmpty else { return false }
-        guard isNearDockEdge(location), let app = appForDockIcon(at: location),
+        guard flags.intersection([.maskCommand, .maskControl, .maskAlternate, .maskShift]).isEmpty,
+              isNearDockEdge(location),
+              !SystemGestureCheck.systemSwitchOnActivateEnabled(),
+              let app = appForDockIcon(at: location),
               let state = switcher.snapshot() else { return false }
 
         var buffer = [Int32](repeating: 0, count: 64)
@@ -68,7 +77,7 @@ final class DockClickInterceptor {
         // The WindowServer needs a moment to reorder the window before the Space appears.
         guard switcher.jump(toSpaceIndex: target, reason: "dock \(name)\(focused ? "" : " (no prefocus)")",
                             after: focused ? prefocusLead : 0) else { return false }
-        pending = Pending(location: location, flags: flags, target: target)
+        pending = Pending(app: app, location: location, flags: flags, target: target)
         scheduleReplay(after: replayTimeout)
         return true
     }
@@ -94,8 +103,16 @@ final class DockClickInterceptor {
         guard let held = pending else { return }
         // A real mouse-up that has not arrived yet passes through untouched from now on.
         pending = nil
-        post(.leftMouseDown, at: held.location, flags: held.flags)
-        if held.upReceived { post(.leftMouseUp, at: held.location, flags: held.flags) }
+        // An auto-hidden Dock can be out of the way right after the switch. A click replayed then
+        // would land in whatever window is under the pointer, so only replay it onto the icon.
+        let iconStillThere = appForDockIcon(at: held.location)?.processIdentifier == held.app.processIdentifier
+        if iconStillThere {
+            post(.leftMouseDown, at: held.location, flags: held.flags)
+            if held.upReceived { post(.leftMouseUp, at: held.location, flags: held.flags) }
+        } else {
+            log.notice("dock icon gone after the switch; focusing \(held.app.localizedName ?? "the app", privacy: .public) directly")
+        }
+        onClickHandled?(held.app, held.target, iconStillThere)
     }
 
     private func post(_ type: CGEventType, at point: CGPoint, flags: CGEventFlags) {
@@ -127,14 +144,67 @@ final class DockClickInterceptor {
         return value
     }
 
+    /// The running Dock and its Accessibility element; refreshed when the Dock restarts.
+    private func dockProcess() -> (app: NSRunningApplication, element: AXUIElement)? {
+        if let dock, !dock.app.isTerminated { return dock }
+        guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first else { return nil }
+        let element = AXUIElementCreateApplication(app.processIdentifier)
+        AXUIElementSetMessagingTimeout(element, 0.15)
+        dock = (app, element)
+        return dock
+    }
+
+    private enum DockVisibility {
+        case hidden
+        case shown
+        /// Shown, but a window above it (a menu, a popover) covers the point.
+        case covered
+    }
+
+    /// Whether the Dock is on screen at `point`. Its window spans the whole screen at the Dock
+    /// level and is off screen while an auto-hidden Dock is hidden.
+    private func dockVisibility(at point: CGPoint, dockPID: pid_t) -> DockVisibility {
+        guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)
+                as? [[String: Any]] else { return .hidden }
+        let dockLevel = Int(CGWindowLevelForKey(.dockWindow))
+        let ownPID = ProcessInfo.processInfo.processIdentifier
+        var covered = false
+        for info in list {  // front to back
+            guard let layer = info[kCGWindowLayer as String] as? Int,
+                  let bounds = info[kCGWindowBounds as String] as? NSDictionary,
+                  let rect = CGRect(dictionaryRepresentation: bounds), rect.contains(point) else { continue }
+            let pid = info[kCGWindowOwnerPID as String] as? pid_t
+            if pid == dockPID, layer == dockLevel { return covered ? .covered : .shown }
+            let alpha = info[kCGWindowAlpha as String] as? Double ?? 1
+            if layer > dockLevel, pid != ownPID, alpha > 0 { covered = true }
+        }
+        return .hidden
+    }
+
     /// The running app whose Dock icon is under `point`, or nil.
+    ///
+    /// The hit-test asks the Dock itself. A system-wide hit-test asks whatever app is under the
+    /// point, for every click near the bottom of the screen (chat input fields live there): a
+    /// busy app stalls it for the whole timeout while all input waits, and Electron apps switch
+    /// on their accessibility tree when asked, which slows them down for good.
     private func appForDockIcon(at point: CGPoint) -> NSRunningApplication? {
+        guard let dock = dockProcess() else { return nil }
         var hit: AXUIElement?
-        guard AXUIElementCopyElementAtPosition(systemWide, Float(point.x), Float(point.y), &hit) == .success,
-              let element = hit else { return nil }
+        switch dockVisibility(at: point, dockPID: dock.app.processIdentifier) {
+        case .hidden:
+            return nil
+        case .covered:
+            // Something is on top of the Dock here; only a system-wide hit-test tells what.
+            guard AXUIElementCopyElementAtPosition(systemWide, Float(point.x), Float(point.y), &hit) == .success else { return nil }
+        case .shown:
+            let result = AXUIElementCopyElementAtPosition(dock.element, Float(point.x), Float(point.y), &hit)
+            if result == .noValue { return nil }
+            if result != .success,
+               AXUIElementCopyElementAtPosition(systemWide, Float(point.x), Float(point.y), &hit) != .success { return nil }
+        }
+        guard let element = hit else { return nil }
         var pid: pid_t = 0
-        guard AXUIElementGetPid(element, &pid) == .success,
-              NSRunningApplication(processIdentifier: pid)?.bundleIdentifier == "com.apple.dock" else { return nil }
+        guard AXUIElementGetPid(element, &pid) == .success, pid == dock.app.processIdentifier else { return nil }
 
         var subrole: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, kAXSubroleAttribute as CFString, &subrole) == .success,

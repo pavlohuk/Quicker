@@ -47,6 +47,7 @@ tccutil reset Accessibility com.pavlohuk.Quicker
 1. macOS recognises the swipe itself and sends "Dock swipe" gesture events to the Dock.
 2. Quicker installs a session event tap that swallows those events.
 3. Instead, it posts a synthetic Dock swipe with a near-zero progress and a huge fling velocity. The Dock performs the switch but finishes it at once, so there is nothing to animate.
+4. The synthetic swipe passes back through the same event tap. On macOS 27 it looks like a trackpad event there, so Quicker recognises its own events by a marker and by their near-zero progress. It does not count them, because the real events of the swipe still in progress arrive first and would use up the count, slip through to the Dock and start the animation.
 
 Because the Dock does the switching, windows of the previous Space are hidden properly. Full-screen apps behave like any other Space, and other apps get the normal Space-change notification.
 
@@ -63,13 +64,21 @@ The synthetic swipe technique comes from [InstantSpaceSwitcher](https://github.c
 
 A jump across several Spaces is a burst of instant swipes, so it has no animation either. Holding an arrow key does not repeat the switch.
 
-These shortcuts are captured globally, so apps no longer receive them. ⌘1…9 stops switching browser tabs and Finder views, and ⌘←/→ stops moving the cursor to the start or end of a line. To avoid this, pick another modifier in the menu: ⌘, ⌃, ⌥ or ⌃⌥. Digits and arrows can also be turned off separately.
+These shortcuts are captured globally, so apps no longer receive them. The exception is the ⌘Tab switcher: while it is open, ⌘←/→ moves its selection as usual. ⌘1…9 stops switching browser tabs and Finder views, and ⌘←/→ stops moving the cursor to the start or end of a line. To avoid this, pick another modifier in the menu: ⌘, ⌃, ⌥ or ⌃⌥. Digits and arrows can also be turned off separately.
 
 ### Following the activated app (⌘Tab, Dock)
 
 Sometimes an app becomes active while none of its windows is on the current Space. This happens with ⌘Tab, a Dock click, or opening a link. Quicker then jumps instantly to the Space holding that app's most recently used window, and makes sure the app you picked gets focus there rather than another app on the same Space. Full-screen apps are supported. If the app already has a visible window on the current Space, nothing happens. Closed, hidden and minimized windows do not count, because macOS keeps them attached to the Space where they were last shown.
 
-Dock clicks are handled before the Dock acts on them. When you click the icon of a running app whose windows are all on another Space, Quicker holds the click back, jumps to that Space instantly and then passes the click on to the Dock. The Dock then just activates the app, so there is no delay and no slide.
+Dock clicks are handled before the Dock acts on them. When you click the icon of a running app whose windows are all on another Space, Quicker holds the click back, jumps to that Space instantly and then passes the click on to the Dock. The Dock then just activates the app, so there is no delay and no slide. If an auto-hidden Dock is out of the way after the switch, the click is not replayed, so it cannot land in a window under the pointer, and Quicker activates the app itself. To find the icon under the pointer, Quicker asks only the Dock, and only while the Dock is on screen. It never queries the app under a click, so clicks near the bottom of a window are not slowed down.
+
+macOS also activates apps on its own, and Quicker does not follow those activations:
+
+- After every Space switch, macOS activates the topmost app of the Space it lands on, including each Space a multi-Space jump passes through. Quicker ignores activations while its own switch is landing and for half a second after any Space change.
+- Finder is activated on an empty desktop and after a click on the wallpaper. Its desktop is on every Space, so Finder is followed only when you pick it with ⌘Tab.
+- After unlocking the screen, waking the Mac or changing displays, macOS reactivates the previous app and rearranges Spaces. Quicker ignores activations for 4 seconds.
+
+An app you pick with ⌘Tab is always followed. Quicker sees the ⌘Tab keystroke and the release of ⌘. As a last safeguard, six app-following switches within 3 seconds can only be a loop, so Quicker stops following apps for 10 seconds and logs it.
 
 In both cases Quicker first asks the WindowServer to bring the app's most recent window to the front, waits 30 ms and only then switches. Without that, the Space would first appear with another app's window on top, and the app you picked would rise about 0.1 s later. Some apps, such as Arc and Things, bring their window forward on activation by themselves, which makes macOS slide to their Space even with the system option off. Quicker switches instantly before that slide can happen. Clicks with ⌘, ⌃, ⌥ or ⇧ held, clicks on apps that are not running, and clicks on apps with a visible window on the current Space reach the Dock unchanged. Each Dock icon is matched to the running app by its location on disk, so copies of one app with the same bundle identifier, such as Telegram and a second Telegram, are told apart.
 
@@ -110,7 +119,7 @@ Stream the app's log:
 /usr/bin/log stream --predicate 'subsystem == "com.pavlohuk.Quicker"' --level info
 ```
 
-In zsh, `log` is a shell builtin, so use the full path `/usr/bin/log`. Every swipe or hotkey should print a line such as `switch next: space 1 -> 2 of 3` or `switch desktop 3: space 1 -> 5 of 5`. Every indicator prints whether it was actually visible on screen.
+In zsh, `log` is a shell builtin, so use the full path `/usr/bin/log`. Every swipe or hotkey should print a line such as `switch next: space 1 -> 2 of 3` or `switch desktop 3: space 1 -> 5 of 5`. Every indicator prints whether it was actually visible on screen. An activation that Quicker deliberately does not follow prints the reason, for example `not following Finder to space 6: Finder is activated by macOS on an empty desktop`.
 
 Switch Spaces from a terminal without a gesture:
 

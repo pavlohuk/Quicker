@@ -67,6 +67,11 @@ void is_ds_set_mouse_handler(ISMouseHandler handler);
 typedef bool (*ISKeyHandler)(int32_t keycode, uint64_t flags, bool is_repeat);
 void is_ds_set_key_handler(ISKeyHandler handler);
 
+/// Called from the event tap whenever the held modifiers change (`flags` are CGEventFlags).
+/// The event always passes through.
+typedef void (*ISFlagsHandler)(uint64_t flags);
+void is_ds_set_flags_handler(ISFlagsHandler handler);
+
 #ifdef __cplusplus
 }
 #endif

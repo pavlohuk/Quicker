@@ -21,14 +21,23 @@ enum SystemGestureCheck {
         return nil
     }
 
+    private static var switchOnActivate: (value: Bool, at: Date)?
+
     /// System Settings → Desktop & Dock → "When switching to an application, switch to a Space
     /// with open windows for the application". On by default; the Dock then slides (animated).
+    ///
+    /// Asked on every click near the Dock, from inside the event tap, so the answer is cached
+    /// for a moment: synchronizing preferences is a round trip to cfprefsd, and the whole
+    /// system's input waits while the tap is busy.
     static func systemSwitchOnActivateEnabled() -> Bool {
+        if let cached = switchOnActivate, Date().timeIntervalSince(cached.at) < 2 { return cached.value }
         CFPreferencesAppSynchronize(kCFPreferencesAnyApplication)
         var valid: DarwinBoolean = false
-        let value = CFPreferencesGetAppBooleanValue("AppleSpacesSwitchOnActivate" as CFString,
-                                                    kCFPreferencesAnyApplication, &valid)
-        return valid.boolValue ? value : true
+        let raw = CFPreferencesGetAppBooleanValue("AppleSpacesSwitchOnActivate" as CFString,
+                                                  kCFPreferencesAnyApplication, &valid)
+        let value = valid.boolValue ? raw : true
+        switchOnActivate = (value, Date())
+        return value
     }
 
     static func openDesktopAndDockSettings() {

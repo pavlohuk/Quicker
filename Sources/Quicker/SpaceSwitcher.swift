@@ -51,12 +51,28 @@ final class SpaceSwitcher {
     /// during a burst would let us overshoot past the last space, which on macOS 27 can wedge the
     /// Dock (black screen). Keep our own prediction authoritative for this long.
     private let predictionTTL: TimeInterval = 1.0
-    private var predicted: (display: String, index: Int, at: Date)?
+    private var predicted: (display: String, index: Int, at: Date, landed: Bool)?
 
     /// True right after our own switch, while the Dock may still report intermediate spaces.
     var isPredicting: Bool {
         guard let p = predicted else { return false }
         return Date().timeIntervalSince(p.at) < predictionTTL
+    }
+
+    /// True from our own switch until the Dock reports its target. While it is landing, macOS
+    /// activates the topmost app of every Space it passes.
+    var isLanding: Bool {
+        guard let p = predicted, !p.landed else { return false }
+        return isPredicting
+    }
+
+    /// Every active-space change. The prediction itself stays for its whole TTL: when the target
+    /// is passed on the way somewhere else, more of our swipes are still queued, and trusting
+    /// SkyLight then could overshoot.
+    func spaceDidChange(_ landed: SpaceSnapshot) {
+        guard var p = predicted, p.display == landed.display, p.index == landed.current else { return }
+        p.landed = true
+        predicted = p
     }
 
     /// One space to the right or left.
@@ -147,7 +163,7 @@ final class SpaceSwitcher {
         } else if !post() {
             return false
         }
-        predicted = (state.display, target, Date())
+        predicted = (state.display, target, Date(), false)
         log.notice("switch \(reason, privacy: .public): space \(state.current + 1) -> \(target + 1) of \(state.count)")
         onShowSpace?(state.with(current: target), true)
         return true

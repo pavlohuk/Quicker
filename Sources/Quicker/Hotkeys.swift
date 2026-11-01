@@ -6,6 +6,8 @@ enum Hotkeys {
     static let digits: [Int32: Int] = [18: 1, 19: 2, 20: 3, 21: 4, 23: 5, 22: 6, 26: 7, 28: 8, 25: 9]
     static let leftArrow: Int32 = 123
     static let rightArrow: Int32 = 124
+    static let tab: Int32 = 48
+    static let escape: Int32 = 53
 
     /// Modifiers that must match exactly. Caps Lock, Fn and the numeric-pad flag (set on arrow
     /// keys) are ignored.
