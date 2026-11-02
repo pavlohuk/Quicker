@@ -72,6 +72,12 @@ static const CFTimeInterval kOwnEventWindow = 1.0;
 static const CFTimeInterval kTrackingTimeout = 2.0;
 static const double kSecondStepAt = 0.45;    // swipe progress that moves a second Space
 static const double kNextStepEvery = 0.15;   // further progress for each Space after that
+static const double kSpeedWindow = 0.06;     // seconds of the swipe the finger speed is measured over
+// Measured: unhurried swipes move the fingers at about 0.7-0.9 screen widths per second, quick
+// edge-to-edge flicks at about 4-5.
+static const double kSlowSpeed = 1.5;        // screen widths per second: no speed-up up to here
+static const double kFastSpeed = 3.0;        // from here, travel counts kMaxBoost times
+static const double kMaxBoost = 3.0;
 
 // ---- OS / preference helpers ----
 
@@ -220,6 +226,12 @@ static bool g_tracking = false;
 static bool g_fired = false;
 static int g_direction = 0;   // of the switch the tracked swipe made, +1 or -1
 static int g_steps = 0;       // Spaces the tracked swipe has moved so far
+static double g_counted = 0;  // progress already turned into Spaces past the second one
+static double g_credit = 0;   // speed-weighted travel not yet worth a whole Space
+/// Recent (time, progress) samples of the tracked swipe, to measure the finger speed.
+enum { kSpeedSamples = 16 };
+static struct { double t, p; } g_samples[kSpeedSamples];
+static int g_sample_count = 0;
 static CFAbsoluteTime g_tracking_at = 0;   // last event of the tracked native swipe
 static unsigned g_companions_pending = 0;  // our companion gesture events not seen back yet
 static CFAbsoluteTime g_last_post = 0;
@@ -282,23 +294,56 @@ static void fire(double value) {
     g_fired = true;
     g_direction = value > 0.0 ? 1 : -1;
     g_steps = 1;
+    g_counted = 0;
+    g_credit = 0;
+    g_sample_count = 0;
     if (g_handler) g_handler(g_direction, false);
 }
 
-/// Spaces a swipe of `distance` should move. The swipe progress is the finger travel in screen
-/// widths; a full stroke across a MacBook trackpad measured about 0.8, a normal one-Space swipe
-/// stays under 0.4.
-static int steps_for(double distance) {
-    if (distance < kSecondStepAt) return 1;
-    return 2 + (int)((distance - kSecondStepAt) / kNextStepEvery);
+/// Finger speed in screen widths per second over the last ~60 ms of the swipe.
+static double swipe_speed(double t, double p) {
+    if (g_sample_count == kSpeedSamples) {
+        memmove(g_samples, g_samples + 1, sizeof(g_samples[0]) * (kSpeedSamples - 1));
+        g_sample_count--;
+    }
+    g_samples[g_sample_count].t = t;
+    g_samples[g_sample_count].p = p;
+    g_sample_count++;
+    int from = 0;
+    for (int i = g_sample_count - 1; i >= 0; i--) {
+        if (t - g_samples[i].t >= kSpeedWindow) { from = i; break; }
+    }
+    double dt = t - g_samples[from].t;
+    return dt > 0.0 ? (p - g_samples[from].p) / dt : 0.0;
 }
 
-/// The fingers keep moving after the first switch: one more Space for every further stretch in
-/// the same direction. Moving back does not undo switches already made.
-static void extend_swipe(double progress) {
+/// How much a stretch of travel counts at `speed`: 1 up to kSlowSpeed, kMaxBoost from kFastSpeed.
+static double speed_boost(double speed) {
+    if (speed <= kSlowSpeed) return 1.0;
+    if (speed >= kFastSpeed) return kMaxBoost;
+    return 1.0 + (kMaxBoost - 1.0) * (speed - kSlowSpeed) / (kFastSpeed - kSlowSpeed);
+}
+
+/// The fingers keep moving after the first switch. The swipe progress is the finger travel in
+/// screen widths; a full stroke across a MacBook trackpad measured about 0.8, a normal one-Space
+/// swipe stays under 0.4. The second Space comes at kSecondStepAt; past it, every kNextStepEvery
+/// of travel moves one more, and faster fingers make the same travel count for more. Moving back
+/// does not undo switches already made.
+static void extend_swipe(double progress, double time) {
     if ((progress > 0.0 ? 1 : -1) != g_direction) return;
-    int wanted = steps_for(fabs(progress));
-    while (g_steps < wanted) {
+    double p = fabs(progress);
+    double speed = swipe_speed(time, p);
+    if (p < kSecondStepAt) return;
+    if (g_steps == 1) {
+        g_steps = 2;
+        g_counted = kSecondStepAt;
+        if (g_handler) g_handler(g_direction, true);
+    }
+    if (p <= g_counted) return;
+    g_credit += (p - g_counted) * speed_boost(speed);
+    g_counted = p;
+    while (g_credit >= kNextStepEvery) {
+        g_credit -= kNextStepEvery;
         g_steps++;
         if (g_handler) g_handler(g_direction, true);
     }
@@ -418,7 +463,7 @@ static CGEventRef tap_callback(CGEventTapProxy proxy, CGEventType type, CGEventR
         g_tracking_at = CFAbsoluteTimeGetCurrent();
         double progress = CGEventGetDoubleValueField(event, kFieldSwipeProgress);
         if (!g_fired && progress != 0.0) fire(progress);
-        else if (g_fired) extend_swipe(progress);
+        else if (g_fired) extend_swipe(progress, (double)CGEventGetTimestamp(event) / 1e9);
         return NULL;
     }
 

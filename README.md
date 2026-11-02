@@ -60,7 +60,7 @@ The synthetic swipe technique comes from [InstantSpaceSwitcher](https://github.c
 
 ### Longer swipes
 
-The first Space switches as soon as the fingers start moving. If they keep going in the same direction, every further stretch moves one more Space. The swipe's progress is measured in screen widths: a normal one-Space swipe stays under 0.4, a full stroke across a MacBook trackpad reaches about 0.8. The second Space comes at 0.45, then one more every 0.15, so a half-trackpad swipe moves three Spaces and an edge-to-edge one four. Moving back does not undo the switches already made. It can be turned off in the menu.
+The first Space switches as soon as the fingers start moving. If they keep going in the same direction, every further stretch moves one more Space. The swipe's progress is measured in screen widths: a normal one-Space swipe stays under 0.4, a full stroke across a MacBook trackpad reaches about 0.8. The second Space comes at 0.45, then one more every 0.15, so an unhurried half-trackpad swipe moves three Spaces. Past the second Space, faster fingers make the same travel count for more: up to 1.5 screen widths per second it counts once, from 3 per second three times, so a quick flick across the trackpad races through about ten Spaces. A quick short swipe still moves one. Moving back does not undo the switches already made. It can be turned off in the menu.
 
 ### Hotkeys
 
