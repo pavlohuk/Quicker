@@ -6,6 +6,7 @@ A macOS menu bar app that makes switching between Spaces **instant, without the 
 - **Hotkeys.** ⌘1…⌘9 jumps straight to the Nth Space, and ⌘←/⌘→ moves to the neighbouring Space.
 - **Following apps.** ⌘Tab or a Dock click on an app whose windows are on another Space jumps there instantly.
 - **Indicator.** After every switch, a small overlay at the top of the screen names the Space you landed on.
+- **Full-screen video.** If you keep the menu bar visible in full-screen apps, it is hidden while a video plays in full screen.
 
 No SIP changes and no Dock patching are needed. The app is available in English and Ukrainian and follows the system language.
 
@@ -88,12 +89,21 @@ This needs the system option from step 3 of the setup to be off. While it is on,
 
 ### Space indicator
 
-After every Space change, an overlay appears for about a second at the top centre of the screen, just below the menu bar. It shows the Space name: "Desktop N" for desktops, or the app name for a full-screen Space. Below the name is a row of marks for all Spaces in Dock order. A dot is a desktop, a short pill is a full-screen app, and the current Space is highlighted.
+After every Space change, an overlay appears for about a second at the top centre of the screen, just below the menu bar. It shows the Space's position (the N that ⌘N jumps to) for a desktop, or the app name for a full-screen Space. Below the name is a row of marks for all Spaces in Dock order. A dot is a desktop, a short pill is a full-screen app, and the current Space is highlighted.
 
 - It reacts to every kind of switch, including swipes, hotkeys, Mission Control, Dock clicks and the system Ctrl+←/→.
 - It appears once the Dock has landed on the final Space, so a multi-Space jump never shows the Spaces in between.
 - It never takes focus or intercepts clicks, and it is visible over full-screen apps.
 - Its position can be the top centre or any corner, and it can be turned off in the menu.
+
+### Menu bar over full-screen video
+
+With "Automatically hide and show the menu bar" set to **Never**, the menu bar stays on screen in full-screen apps, including over a video. Quicker hides it on a full-screen Space once the app that owns the Space keeps the display awake, which is what a player does while a video plays. Tested with YouTube in Arc; other Chromium browsers and video players behave the same way, while Safari may keep the display awake from a helper process and then not be recognised.
+
+- Pausing does not bring the menu bar back. It returns when you leave the Space; leaving a browser's full-screen video closes its Space.
+- Quicker switches the system option to "In Full Screen Only" for that time, exactly as System Settings does, and switches it back afterwards, when Quicker quits, and on the next launch after a crash.
+- If the option is already set to hide the menu bar in full screen, Quicker leaves it alone.
+- A video playing inside a normal full-screen window, not in the player's own full screen, hides the menu bar as well.
 
 ## Menu
 
@@ -103,6 +113,7 @@ After every Space change, an overlay appears for about a second at the top centr
 - **Hotkeys.** Toggles for digits and arrows, and the modifier choice.
 - **Go to App (⌘Tab, Dock).** Toggles following the activated app.
 - **Space Indicator.** On/off and the position on screen.
+- **Full-Screen Video.** Hiding the menu bar over full-screen video.
 - **Launch at Login.** Uses `SMAppService`.
 
 Settings are stored in the `com.pavlohuk.Quicker` defaults domain.

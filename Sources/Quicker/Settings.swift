@@ -49,6 +49,7 @@ final class Settings {
         static let indicatorEnabled = "indicatorEnabled"
         static let indicatorCorner = "indicatorCorner"
         static let followActivatedApp = "followActivatedApp"
+        static let hideMenuBarForVideo = "hideMenuBarForVideo"
     }
 
     private let defaults = UserDefaults.standard
@@ -63,6 +64,7 @@ final class Settings {
             Key.indicatorEnabled: true,
             Key.indicatorCorner: IndicatorCorner.topCenter.rawValue,
             Key.followActivatedApp: true,
+            Key.hideMenuBarForVideo: true,
         ])
     }
 
@@ -108,6 +110,13 @@ final class Settings {
     var followActivatedApp: Bool {
         get { defaults.bool(forKey: Key.followActivatedApp) }
         set { defaults.set(newValue, forKey: Key.followActivatedApp) }
+    }
+
+    /// Hides the menu bar on a full-screen Space while a video plays there, when the system
+    /// option keeps it visible in full screen otherwise.
+    var hideMenuBarForVideo: Bool {
+        get { defaults.bool(forKey: Key.hideMenuBarForVideo) }
+        set { defaults.set(newValue, forKey: Key.hideMenuBarForVideo) }
     }
 
     var indicatorCorner: IndicatorCorner {

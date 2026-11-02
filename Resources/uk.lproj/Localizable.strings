@@ -24,6 +24,8 @@
 "menu.indicator" = "Індикатор столу";
 "menu.indicator.show" = "Показувати при перемиканні";
 "menu.indicator.position" = "Положення: %@";
+"menu.video" = "Відео на весь екран";
+"menu.video.hideMenuBar" = "Ховати смугу меню";
 "menu.launchAtLogin" = "Запускати при вході";
 "menu.quit" = "Вийти";
 

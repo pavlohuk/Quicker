@@ -100,6 +100,10 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         menu.addItem(cornerItem)
         menu.addItem(.separator())
 
+        menu.addItem(header(L("menu.video")))
+        menu.addItem(check(L("menu.video.hideMenuBar"), on: settings.hideMenuBarForVideo, #selector(toggleVideoMenuBar), indent: 1))
+        menu.addItem(.separator())
+
         menu.addItem(check(L("menu.launchAtLogin"), on: LoginItem.isEnabled, #selector(toggleLoginItem)))
         menu.addItem(.separator())
         menu.addItem(action(L("menu.quit"), #selector(quit), key: "q"))
@@ -140,6 +144,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
     @objc private func toggleIndicator() { settings.indicatorEnabled.toggle(); changed() }
     @objc private func toggleFollowApp() { settings.followActivatedApp.toggle(); changed() }
+    @objc private func toggleVideoMenuBar() { settings.hideMenuBarForVideo.toggle(); changed() }
     @objc private func openDesktopSettings() { SystemGestureCheck.openDesktopAndDockSettings() }
 
     @objc private func setCorner(_ sender: NSMenuItem) {

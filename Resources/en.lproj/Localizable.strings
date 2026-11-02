@@ -24,6 +24,8 @@
 "menu.indicator" = "Space Indicator";
 "menu.indicator.show" = "Show When Switching";
 "menu.indicator.position" = "Position: %@";
+"menu.video" = "Full-Screen Video";
+"menu.video.hideMenuBar" = "Hide Menu Bar";
 "menu.launchAtLogin" = "Launch at Login";
 "menu.quit" = "Quit";
 

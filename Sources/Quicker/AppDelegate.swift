@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusBar: StatusBarController?
     private let switcher = SpaceSwitcher()
     private let indicator = SpaceIndicator()
+    private let videoMenuBar = VideoMenuBar()
     /// Target of our own switch, shown once the Dock has actually landed there.
     private var pendingIndicator: SpaceSnapshot?
     private var pendingFallback: DispatchWorkItem?
@@ -53,7 +54,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         is_ds_set_intercept(Settings.shared.enabled)
 
         let statusBar = StatusBarController()
-        statusBar.onSettingsChanged = { is_ds_set_intercept(Settings.shared.enabled) }
+        statusBar.onSettingsChanged = { [weak self] in
+            is_ds_set_intercept(Settings.shared.enabled)
+            self?.videoMenuBar.update(self?.switcher.snapshot(usePrediction: false))
+        }
         statusBar.isAccessibilityGranted = { AXIsProcessTrusted() }
         statusBar.isInterceptActive = { is_ds_tap_installed() }
         self.statusBar = statusBar
@@ -74,6 +78,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         installSignalHandlers()
         startInterception()
+        videoMenuBar.update(switcher.snapshot(usePrediction: false))
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        videoMenuBar.restore()
     }
 
     // MARK: Follow the activated app
@@ -238,6 +247,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let landed = switcher.snapshot(usePrediction: false) else { return }
         log.info("active space changed to \(landed.current + 1) of \(landed.count)")
         switcher.spaceDidChange(landed)
+        videoMenuBar.update(landed)
         dockClicks.spaceDidChange(to: landed.current)
         if let held = heldRelease, held.target == landed.current {
             scheduleRelease(after: 0.03)
@@ -344,6 +354,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             signal(sig, SIG_IGN)
             let source = DispatchSource.makeSignalSource(signal: sig, queue: .main)
             source.setEventHandler { [weak self] in self?.switcher.perform(step) }
+            source.resume()
+            signalSources.append(source)
+        }
+        // `kill`/`pkill` skip applicationWillTerminate; put the menu bar setting back first.
+        for sig in [SIGTERM, SIGINT] {
+            signal(sig, SIG_IGN)
+            let source = DispatchSource.makeSignalSource(signal: sig, queue: .main)
+            source.setEventHandler { [weak self] in
+                self?.videoMenuBar.restore()
+                exit(0)
+            }
             source.resume()
             signalSources.append(source)
         }
