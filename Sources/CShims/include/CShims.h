@@ -35,6 +35,10 @@ int32_t is_spaces_app_window_indexes(int32_t pid, int32_t *out_indexes, uint32_t
 /// is not visible yet: when Quicker lands there, that window is already on top.
 bool is_focus_window(int32_t pid, uint32_t window);
 
+/// Pids of the running apps, most recently active first, as LaunchServices keeps them: the order
+/// of the ⌘Tab switcher. Returns how many were written, or -1 when the call is unavailable.
+int is_front_to_back_pids(int32_t *out, int max);
+
 // ---- Dock swipe (synthetic gesture + interception of the native one) ----
 
 /// Called from the event tap (main run loop) when a native horizontal Dock swipe starts, and

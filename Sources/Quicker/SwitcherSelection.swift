@@ -1,11 +1,13 @@
 import AppKit
 import ApplicationServices
+import CShims
 
 /// Tells which app is selected in the ⌘Tab switcher.
 ///
 /// Once the switcher is on screen, the Dock's Accessibility tree has a list of the apps with the
 /// selected one marked. A quick ⌘Tab releases ⌘ before the switcher appears, so there is no list
-/// yet; the switcher would then pick by recency, which is tracked here from app activations.
+/// yet; the switcher would then pick by recency, which LaunchServices keeps (tracked here from app
+/// activations too, in case that call is unavailable).
 final class SwitcherSelection: NSObject {
     private var dock: (app: NSRunningApplication, element: AXUIElement)?
     /// The tree is described in the log once, to diagnose a macOS that lays it out differently.
@@ -33,8 +35,8 @@ final class SwitcherSelection: NSObject {
     func selectedApp(steps: Int?) -> NSRunningApplication? {
         guard let dock = dockProcess(), let list = findList(in: dock.element, depth: 0) else {
             // The switcher has not appeared yet.
-            recent.removeAll { $0.isTerminated }
-            if let steps, steps > 0, steps < recent.count { return recent[steps] }
+            let order = Self.systemRecent() ?? { recent.removeAll { $0.isTerminated }; return recent }()
+            if let steps, steps > 0, steps < order.count { return order[steps] }
             log.info("⌘Tab selection: no switcher on screen and no recent app \(steps.map(String.init) ?? "-", privacy: .public) back")
             return nil
         }
@@ -74,6 +76,17 @@ final class SwitcherSelection: NSObject {
     }
 
     // MARK: Private
+
+    /// Regular apps in the order LaunchServices keeps them, most recently active first. Unlike
+    /// `recent` it is complete right after Quicker starts, when nothing was activated yet.
+    private static func systemRecent() -> [NSRunningApplication]? {
+        var pids = [Int32](repeating: 0, count: 128)
+        let count = Int(is_front_to_back_pids(&pids, Int32(pids.count)))
+        guard count > 0 else { return nil }
+        let apps = pids.prefix(count).compactMap { NSRunningApplication(processIdentifier: $0) }
+            .filter { $0.activationPolicy == .regular && !$0.isTerminated }
+        return apps.isEmpty ? nil : apps
+    }
 
     private func dockProcess() -> (app: NSRunningApplication, element: AXUIElement)? {
         if let dock, !dock.app.isTerminated { return dock }

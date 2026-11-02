@@ -239,3 +239,39 @@ bool is_focus_window(int32_t pid, uint32_t window) {
     }
     return true;
 }
+
+// ---- Apps in ⌘Tab order ----
+
+typedef CFArrayRef (*f_front_to_back)(int session, int limit);
+typedef void (*f_asn_parts)(CFTypeRef asn, uint32_t *high, uint32_t *low);
+typedef int (*f_pid_for_psn)(const is_psn *, pid_t *);
+
+int is_front_to_back_pids(int32_t *out, int max) {
+    static f_front_to_back front_to_back;
+    static f_asn_parts asn_parts;
+    static f_pid_for_psn pid_for_psn;
+    static int tried;
+    if (!tried) {
+        tried = 1;
+        void *ls = dlopen("/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/LaunchServices", RTLD_NOW);
+        if (ls) {
+            front_to_back = (f_front_to_back)dlsym(ls, "_LSCopyApplicationArrayInFrontToBackOrder");
+            asn_parts = (f_asn_parts)dlsym(ls, "_LSASNExtractHighAndLowParts");
+        }
+        pid_for_psn = (f_pid_for_psn)dlsym(RTLD_DEFAULT, "GetProcessPID");
+    }
+    if (!front_to_back || !asn_parts || !pid_for_psn || !out || max <= 0) return -1;
+
+    const int kDefaultSession = -2;
+    CFArrayRef list = front_to_back(kDefaultSession, 0x7fffffff);
+    if (!list) return -1;
+    int count = 0;
+    for (CFIndex i = 0; i < CFArrayGetCount(list) && count < max; i++) {
+        is_psn psn = {0, 0};
+        asn_parts(CFArrayGetValueAtIndex(list, i), &psn.high, &psn.low);
+        pid_t pid = 0;
+        if (pid_for_psn(&psn, &pid) == 0 && pid > 0) out[count++] = pid;
+    }
+    CFRelease(list);
+    return count;
+}
