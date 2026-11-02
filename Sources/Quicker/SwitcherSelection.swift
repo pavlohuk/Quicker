@@ -45,14 +45,32 @@ final class SwitcherSelection: NSObject {
         if let url = urlValue(item), let app = DockClickInterceptor.runningApp(at: url) { return app }
         // No location: match by name, but only when it is unambiguous.
         if let title = stringValue(item, kAXTitleAttribute) {
-            // Helper processes often carry the app's name too, but only regular apps are listed.
-            let matches = NSWorkspace.shared.runningApplications.filter {
-                $0.activationPolicy == .regular && $0.localizedName == title
-            }
-            if matches.count == 1 { return matches[0] }
+            if let app = Self.runningApp(named: title) { return app }
+            log.info("⌘Tab selection: no single running app named '\(title, privacy: .public)'")
         }
         describeOnce("no running app for the selected switcher item", element: item)
         return nil
+    }
+
+    /// The regular app the switcher lists under `title`. The switcher shows the app's file name,
+    /// which tells copies apart ("Telegram Work.app" is listed as "Telegram Work" though its
+    /// process is named "Telegram"), so that is tried first; then the process name without the
+    /// invisible direction marks some apps put in it (WhatsApp's starts with U+200E).
+    private static func runningApp(named title: String) -> NSRunningApplication? {
+        // Helper processes often carry the app's name too, but only regular apps are listed.
+        let apps = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }
+        let byFile = apps.filter { app in
+            app.bundleURL.map { FileManager.default.displayName(atPath: $0.path) == title || $0.deletingPathExtension().lastPathComponent == title } ?? false
+        }
+        if byFile.count == 1 { return byFile[0] }
+        let wanted = cleanName(title)
+        let byName = apps.filter { $0.localizedName.map(cleanName) == wanted }
+        return byName.count == 1 ? byName[0] : nil
+    }
+
+    private static func cleanName(_ name: String) -> String {
+        let marks: Set<Character> = ["\u{200E}", "\u{200F}", "\u{202A}", "\u{202B}", "\u{202C}", "\u{202D}", "\u{202E}", "\u{2066}", "\u{2067}", "\u{2068}", "\u{2069}"]
+        return String(name.filter { !marks.contains($0) }).trimmingCharacters(in: .whitespaces)
     }
 
     // MARK: Private
