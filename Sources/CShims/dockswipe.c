@@ -70,6 +70,8 @@ static const int64_t kSwipeMarker = 0x49535357;
 static const CFTimeInterval kOwnEventWindow = 1.0;
 /// A tracked native swipe that has gone silent this long is over, even without an ended event.
 static const CFTimeInterval kTrackingTimeout = 2.0;
+static const double kSecondStepAt = 0.45;    // swipe progress that moves a second Space
+static const double kNextStepEvery = 0.15;   // further progress for each Space after that
 
 // ---- OS / preference helpers ----
 
@@ -216,6 +218,8 @@ static unsigned g_held_flags_count = 0;
 static uint8_t g_swallowed_keys[128];  // key-downs we swallowed, so their key-ups are swallowed too
 static bool g_tracking = false;
 static bool g_fired = false;
+static int g_direction = 0;   // of the switch the tracked swipe made, +1 or -1
+static int g_steps = 0;       // Spaces the tracked swipe has moved so far
 static CFAbsoluteTime g_tracking_at = 0;   // last event of the tracked native swipe
 static unsigned g_companions_pending = 0;  // our companion gesture events not seen back yet
 static CFAbsoluteTime g_last_post = 0;
@@ -276,7 +280,28 @@ bool is_ds_post_switch(int direction) {
 
 static void fire(double value) {
     g_fired = true;
-    if (g_handler) g_handler(value > 0.0 ? 1 : -1);
+    g_direction = value > 0.0 ? 1 : -1;
+    g_steps = 1;
+    if (g_handler) g_handler(g_direction, false);
+}
+
+/// Spaces a swipe of `distance` should move. The swipe progress is the finger travel in screen
+/// widths; a full stroke across a MacBook trackpad measured about 0.8, a normal one-Space swipe
+/// stays under 0.4.
+static int steps_for(double distance) {
+    if (distance < kSecondStepAt) return 1;
+    return 2 + (int)((distance - kSecondStepAt) / kNextStepEvery);
+}
+
+/// The fingers keep moving after the first switch: one more Space for every further stretch in
+/// the same direction. Moving back does not undo switches already made.
+static void extend_swipe(double progress) {
+    if ((progress > 0.0 ? 1 : -1) != g_direction) return;
+    int wanted = steps_for(fabs(progress));
+    while (g_steps < wanted) {
+        g_steps++;
+        if (g_handler) g_handler(g_direction, true);
+    }
 }
 
 static void reset_tracking(void) {
@@ -393,6 +418,7 @@ static CGEventRef tap_callback(CGEventTapProxy proxy, CGEventType type, CGEventR
         g_tracking_at = CFAbsoluteTimeGetCurrent();
         double progress = CGEventGetDoubleValueField(event, kFieldSwipeProgress);
         if (!g_fired && progress != 0.0) fire(progress);
+        else if (g_fired) extend_swipe(progress);
         return NULL;
     }
 

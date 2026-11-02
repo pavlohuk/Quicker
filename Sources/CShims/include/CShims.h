@@ -37,9 +37,10 @@ bool is_focus_window(int32_t pid, uint32_t window);
 
 // ---- Dock swipe (synthetic gesture + interception of the native one) ----
 
-/// Called from the event tap (main run loop) when a native horizontal Dock swipe starts.
+/// Called from the event tap (main run loop) when a native horizontal Dock swipe starts, and
+/// again with `extra` set for every further Space a longer swipe travels.
 /// direction: +1 = towards the next space (right), -1 = towards the previous one (left).
-typedef void (*ISSwipeHandler)(int direction);
+typedef void (*ISSwipeHandler)(int direction, bool extra);
 
 /// Asks the Dock to switch one space instantly by posting a synthetic swipe with a tiny
 /// progress and a huge fling velocity. Needs Accessibility permission.

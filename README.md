@@ -2,7 +2,7 @@
 
 A macOS menu bar app that makes switching between Spaces **instant, without the slide animation**.
 
-- **Trackpad swipe.** The system three- or four-finger swipe between desktops switches immediately.
+- **Trackpad swipe.** The system three- or four-finger swipe between desktops switches immediately, and a longer swipe moves across several Spaces.
 - **Hotkeys.** ⌘1…⌘9 jumps straight to the Nth Space, and ⌘←/⌘→ moves to the neighbouring Space.
 - **Following apps.** ⌘Tab or a Dock click on an app whose windows are on another Space jumps there instantly.
 - **Indicator.** After every switch, a small overlay at the top of the screen names the Space you landed on.
@@ -58,6 +58,10 @@ The synthetic swipe technique comes from [InstantSpaceSwitcher](https://github.c
 
 ## Features
 
+### Longer swipes
+
+The first Space switches as soon as the fingers start moving. If they keep going in the same direction, every further stretch moves one more Space. The swipe's progress is measured in screen widths: a normal one-Space swipe stays under 0.4, a full stroke across a MacBook trackpad reaches about 0.8. The second Space comes at 0.45, then one more every 0.15, so a half-trackpad swipe moves three Spaces and an edge-to-edge one four. Moving back does not undo the switches already made. It can be turned off in the menu.
+
 ### Hotkeys
 
 - **⌘1 … ⌘9** jumps straight to the Nth Space, counted in the order of the Spaces bar in Mission Control with full-screen apps included. If there is no Nth Space, the keystroke goes to the frontmost app as usual.
@@ -110,6 +114,7 @@ With "Automatically hide and show the menu bar" set to **Never**, the menu bar s
 - **Status.** Shows whether Accessibility is granted and which finger count the system swipe uses.
 - **Enabled.** The master switch. When it is off, swipes reach the system unchanged with the normal animation, and the hotkeys and app following do nothing.
 - **Invert Swipe Direction.** Affects the trackpad only.
+- **Longer Swipe Skips More Spaces.** Turns the multi-Space swipe on or off.
 - **Hotkeys.** Toggles for digits and arrows, and the modifier choice.
 - **Go to App (⌘Tab, Dock).** Toggles following the activated app.
 - **Space Indicator.** On/off and the position on screen.

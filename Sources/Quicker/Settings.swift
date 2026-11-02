@@ -50,6 +50,7 @@ final class Settings {
         static let indicatorCorner = "indicatorCorner"
         static let followActivatedApp = "followActivatedApp"
         static let hideMenuBarForVideo = "hideMenuBarForVideo"
+        static let longSwipeSkipsMore = "longSwipeSkipsMore"
     }
 
     private let defaults = UserDefaults.standard
@@ -65,6 +66,7 @@ final class Settings {
             Key.indicatorCorner: IndicatorCorner.topCenter.rawValue,
             Key.followActivatedApp: true,
             Key.hideMenuBarForVideo: true,
+            Key.longSwipeSkipsMore: true,
         ])
     }
 
@@ -79,6 +81,12 @@ final class Settings {
     var invertDirection: Bool {
         get { defaults.bool(forKey: Key.invert) }
         set { defaults.set(newValue, forKey: Key.invert) }
+    }
+
+    /// A longer trackpad swipe moves more than one Space.
+    var longSwipeSkipsMore: Bool {
+        get { defaults.bool(forKey: Key.longSwipeSkipsMore) }
+        set { defaults.set(newValue, forKey: Key.longSwipeSkipsMore) }
     }
 
     /// modifier+1…9 jumps straight to desktop N.

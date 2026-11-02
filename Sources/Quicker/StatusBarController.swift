@@ -58,6 +58,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
         menu.addItem(check(L("menu.enabled"), on: settings.enabled, #selector(toggleEnabled)))
         menu.addItem(check(L("menu.invertSwipe"), on: settings.invertDirection, #selector(toggleInvert)))
+        menu.addItem(check(L("menu.longSwipe"), on: settings.longSwipeSkipsMore, #selector(toggleLongSwipe)))
         menu.addItem(.separator())
 
         let m = settings.hotkeyModifier.symbol
@@ -139,6 +140,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
     @objc private func toggleEnabled() { settings.enabled.toggle(); changed() }
     @objc private func toggleInvert() { settings.invertDirection.toggle(); changed() }
+    @objc private func toggleLongSwipe() { settings.longSwipeSkipsMore.toggle(); changed() }
     @objc private func toggleDigits() { settings.hotkeyDigits.toggle(); changed() }
     @objc private func toggleArrows() { settings.hotkeyArrows.toggle(); changed() }
 

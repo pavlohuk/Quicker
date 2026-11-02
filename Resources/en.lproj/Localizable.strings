@@ -11,6 +11,7 @@
 /* Menu */
 "menu.enabled" = "Enabled";
 "menu.invertSwipe" = "Invert Swipe Direction";
+"menu.longSwipe" = "Longer Swipe Skips More Spaces";
 "menu.hotkeys" = "Hotkeys";
 "menu.hotkeys.digits" = "%1$@1 … %1$@9 — go to desktop N";
 "menu.hotkeys.arrows" = "%1$@← / %1$@→ — neighboring Space";

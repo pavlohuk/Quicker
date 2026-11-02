@@ -11,6 +11,7 @@
 /* Menu */
 "menu.enabled" = "Увімкнено";
 "menu.invertSwipe" = "Інвертувати напрямок свайпу";
+"menu.longSwipe" = "Довший свайп — більше столів";
 "menu.hotkeys" = "Гарячі клавіші";
 "menu.hotkeys.digits" = "%1$@1 … %1$@9 — перейти на стіл N";
 "menu.hotkeys.arrows" = "%1$@← / %1$@→ — сусідній стіл";

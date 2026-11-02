@@ -39,8 +39,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // event tap, so an app that does not answer must not hold it for the default 6 s.
         AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), 0.2)
 
-        is_ds_set_swipe_handler { direction in
-            AppDelegate.current?.handleNativeSwipe(direction: Int(direction))
+        is_ds_set_swipe_handler { direction, extra in
+            AppDelegate.current?.handleNativeSwipe(direction: Int(direction), extra: extra)
         }
         is_ds_set_key_handler { keycode, flags, isRepeat in
             AppDelegate.current?.handleKey(keycode: keycode, flags: flags, isRepeat: isRepeat) ?? false
@@ -310,7 +310,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Native swipe intercepted: +1 means the user swiped towards the next space.
-    private func handleNativeSwipe(direction: Int) {
+    private func handleNativeSwipe(direction: Int, extra: Bool) {
+        if extra && !Settings.shared.longSwipeSkipsMore { return }
         var step: SpaceStep = direction > 0 ? .next : .previous
         if Settings.shared.invertDirection { step = step == .next ? .previous : .next }
         dropPendingFocus()
