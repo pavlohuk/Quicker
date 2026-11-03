@@ -116,9 +116,11 @@ final class ActivationGuard: NSObject {
     /// `picked`: the activation is the ⌘Tab pick. `switching`: Quicker's own switch has not
     /// landed yet.
     func verdict(for app: NSRunningApplication, picked: Bool, switching: Bool) -> Verdict {
+        // A ⌘Tab pick needs a real Tab press, which no loop makes, so the burst pause does not
+        // hold it back: quick ⌘Tabs back and forth are the user's.
+        if picked { return .follow }
         let now = Date()
         if now < pausedUntil { return .skip("paused after a burst of switches") }
-        if picked { return .follow }
         if app.bundleIdentifier == Self.finder {
             // Finder owns the desktop, which is on every Space.
             return .skip("Finder is activated by macOS on an empty desktop")
@@ -129,8 +131,9 @@ final class ActivationGuard: NSObject {
         return .follow
     }
 
-    /// Call after every switch made to follow an app.
-    func didFollow() {
+    /// Call after every switch made to follow an app. ⌘Tab picks do not count toward a burst.
+    func didFollow(picked: Bool) {
+        guard !picked else { return }
         let now = Date()
         recentFollows = recentFollows.filter { now.timeIntervalSince($0) < burstWindow } + [now]
         guard recentFollows.count >= burstLimit else { return }

@@ -124,7 +124,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // The WindowServer needs a moment to reorder the window before the Space appears.
         guard switcher.jump(toSpaceIndex: target, reason: "app \(name)\(picked ? " (⌘Tab)" : "")\(focused ? "" : " (no prefocus)")",
                             after: focused ? SpaceSwitcher.prefocusLead : 0) else { return }
-        activationGuard.didFollow()
+        activationGuard.didFollow(picked: picked)
         expectFocus(app, on: target, after: 0.6)
     }
 
@@ -162,10 +162,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             log.notice("not following \(name, privacy: .public) to space \(target + 1): \(reason, privacy: .public)")
             return false
         }
-        let focused = is_focus_window(app.processIdentifier, windows[0])
-        guard switcher.jump(toSpaceIndex: target, reason: "app \(name) (⌘Tab from full screen)\(focused ? "" : " (no prefocus)")",
-                            after: focused ? SpaceSwitcher.prefocusLead : 0) else { return false }
-        activationGuard.didFollow()
+        // No prefocus here: a window raised on a Space that is not visible makes the Dock slide
+        // there itself, and from a full-screen Space it sometimes starts before our instant
+        // switch (seen in about 2% of picks). The app comes to front when ⌘ is let go anyway.
+        guard switcher.jump(toSpaceIndex: target, reason: "app \(name) (⌘Tab from full screen)") else { return false }
+        activationGuard.didFollow(picked: true)
         heldRelease = (app, target)
         scheduleRelease(after: 0.4)
         return true
