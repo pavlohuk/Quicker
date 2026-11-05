@@ -29,7 +29,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     func updateIcon() {
         guard let button = item.button else { return }
         let ready = settings.enabled && (isInterceptActive?() ?? false)
-        let symbol = ready ? "rectangle.2.swap" : "rectangle.slash"
+        let symbol = ready ? "iphone.app.switcher" : "rectangle.slash"
         let image = NSImage(systemSymbolName: symbol, accessibilityDescription: "Quicker")
             ?? NSImage(systemSymbolName: "arrow.left.arrow.right", accessibilityDescription: "Quicker")
         image?.isTemplate = true
