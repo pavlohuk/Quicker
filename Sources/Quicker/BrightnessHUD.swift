@@ -44,9 +44,9 @@ final class BrightnessHUD {
             badge.heightAnchor.constraint(equalToConstant: 16),
             badge.widthAnchor.constraint(greaterThanOrEqualToConstant: 16),
             percentLabel.centerYAnchor.constraint(equalTo: badge.centerYAnchor),
-            // The label draws about 2 pt of its own on each side: 4 pt from the edge to the digits.
-            percentLabel.leadingAnchor.constraint(equalTo: badge.leadingAnchor, constant: 2),
-            percentLabel.trailingAnchor.constraint(equalTo: badge.trailingAnchor, constant: -2),
+            // The label draws 3 pt of its own on each side: 6 pt from the edge to the digits.
+            percentLabel.leadingAnchor.constraint(equalTo: badge.leadingAnchor, constant: 3),
+            percentLabel.trailingAnchor.constraint(equalTo: badge.trailingAnchor, constant: -3),
         ])
 
         let header = NSStackView(views: [titleLabel, badge])
@@ -69,8 +69,11 @@ final class BrightnessHUD {
         // Inside the glass view the stack does not keep its insets on its own (see SpaceIndicator).
         for view in [header, row] {
             view.leadingAnchor.constraint(equalTo: stack.leadingAnchor, constant: stack.edgeInsets.left).isActive = true
-            view.trailingAnchor.constraint(equalTo: stack.trailingAnchor, constant: -stack.edgeInsets.right).isActive = true
         }
+        row.trailingAnchor.constraint(equalTo: stack.trailingAnchor, constant: -stack.edgeInsets.right).isActive = true
+        // The title row keeps its natural width, so the badge is never stretched.
+        header.trailingAnchor.constraint(lessThanOrEqualTo: stack.trailingAnchor, constant: -stack.edgeInsets.right).isActive = true
+        badge.setContentHuggingPriority(.required, for: .horizontal)
 
         hover.translatesAutoresizingMaskIntoConstraints = false
         hover.addSubview(stack)
