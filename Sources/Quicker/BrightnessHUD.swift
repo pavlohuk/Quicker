@@ -83,7 +83,7 @@ final class BrightnessHUD {
             stack.topAnchor.constraint(equalTo: hover.topAnchor),
             stack.bottomAnchor.constraint(equalTo: hover.bottomAnchor),
         ])
-        content = SpaceIndicator.background(around: hover, cornerRadius: 24)
+        content = SpaceIndicator.background(around: hover)
 
         bar.onSet = { [weak self] value, animated in
             guard let self, let id = self.displayID else { return }

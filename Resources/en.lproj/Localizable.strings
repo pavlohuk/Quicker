@@ -36,6 +36,7 @@
 "position.topCenter" = "Top Center";
 "position.topRight" = "Top Right";
 "position.topLeft" = "Top Left";
+"position.bottomCenter" = "Bottom Center";
 "position.bottomRight" = "Bottom Right";
 "position.bottomLeft" = "Bottom Left";
 

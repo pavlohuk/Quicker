@@ -4,6 +4,7 @@ enum IndicatorCorner: String, CaseIterable {
     case topCenter
     case topRight
     case topLeft
+    case bottomCenter
     case bottomRight
     case bottomLeft
 
@@ -12,6 +13,7 @@ enum IndicatorCorner: String, CaseIterable {
         case .topCenter: return L("position.topCenter")
         case .topRight: return L("position.topRight")
         case .topLeft: return L("position.topLeft")
+        case .bottomCenter: return L("position.bottomCenter")
         case .bottomRight: return L("position.bottomRight")
         case .bottomLeft: return L("position.bottomLeft")
         }
@@ -33,7 +35,7 @@ final class SpaceIndicator {
     private let margin: CGFloat = 12
 
     init() {
-        titleLabel.font = .systemFont(ofSize: 17, weight: .semibold)
+        titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
         titleLabel.textColor = .labelColor
         titleLabel.alignment = .center
         titleLabel.lineBreakMode = .byTruncatingTail
@@ -42,8 +44,8 @@ final class SpaceIndicator {
         let stack = NSStackView(views: [titleLabel, dots])
         stack.orientation = .vertical
         stack.alignment = .centerX
-        stack.spacing = 8
-        stack.edgeInsets = NSEdgeInsets(top: 14, left: 24, bottom: 15, right: 24)
+        stack.spacing = 6
+        stack.edgeInsets = NSEdgeInsets(top: 11, left: 16, bottom: 12, right: 16)
         stack.translatesAutoresizingMaskIntoConstraints = false
         stack.widthAnchor.constraint(greaterThanOrEqualToConstant: 120).isActive = true
         // Inside the glass view the stack does not grow to fit its views across, so the dots
@@ -73,7 +75,7 @@ final class SpaceIndicator {
         return panel
     }
 
-    static let cornerRadius: CGFloat = 22
+    static let cornerRadius: CGFloat = 24
 
     /// Liquid Glass like the system's own HUDs (volume, brightness) on macOS 26 and later, a
     /// blurred HUD material before that.
@@ -189,12 +191,15 @@ final class SpaceIndicator {
     /// Frame at the requested position on `screen`, inside its visible area.
     static func frame(for size: NSSize, corner: IndicatorCorner, on screen: NSScreen?, margin: CGFloat = 12) -> NSRect {
         let area = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+        // Gap below the menu bar.
+        let top: CGFloat = 18
         let x: CGFloat
         let y: CGFloat
         switch corner {
-        case .topCenter: x = area.midX - size.width / 2; y = area.maxY - size.height - margin
-        case .topRight: x = area.maxX - size.width - margin; y = area.maxY - size.height - margin
-        case .topLeft: x = area.minX + margin; y = area.maxY - size.height - margin
+        case .topCenter: x = area.midX - size.width / 2; y = area.maxY - size.height - top
+        case .topRight: x = area.maxX - size.width - margin; y = area.maxY - size.height - top
+        case .topLeft: x = area.minX + margin; y = area.maxY - size.height - top
+        case .bottomCenter: x = area.midX - size.width / 2; y = area.minY + margin
         case .bottomRight: x = area.maxX - size.width - margin; y = area.minY + margin
         case .bottomLeft: x = area.minX + margin; y = area.minY + margin
         }

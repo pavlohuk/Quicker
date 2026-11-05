@@ -36,6 +36,7 @@
 "position.topCenter" = "Угорі по центру";
 "position.topRight" = "Угорі праворуч";
 "position.topLeft" = "Угорі ліворуч";
+"position.bottomCenter" = "Унизу по центру";
 "position.bottomRight" = "Унизу праворуч";
 "position.bottomLeft" = "Унизу ліворуч";
 
