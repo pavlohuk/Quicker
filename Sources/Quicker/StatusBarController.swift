@@ -7,6 +7,14 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     private let settings = Settings.shared
 
     var onSettingsChanged: (() -> Void)?
+
+    /// Screen frame of the menu bar icon; nil when it is hidden (behind the notch, by a menu bar
+    /// manager, or the menu bar is hidden).
+    var iconFrame: NSRect? {
+        guard item.isVisible, let window = item.button?.window, window.isVisible, window.occlusionState.contains(.visible)
+        else { return nil }
+        return window.frame
+    }
     var isAccessibilityGranted: (() -> Bool)?
     var isInterceptActive: (() -> Bool)?
 
@@ -101,6 +109,10 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         menu.addItem(cornerItem)
         menu.addItem(.separator())
 
+        menu.addItem(header(L("menu.brightness")))
+        menu.addItem(check(L("menu.brightness.keys"), on: settings.brightnessKeys, #selector(toggleBrightnessKeys), indent: 1))
+        menu.addItem(.separator())
+
         menu.addItem(header(L("menu.video")))
         menu.addItem(check(L("menu.video.hideMenuBar"), on: settings.hideMenuBarForVideo, #selector(toggleVideoMenuBar), indent: 1))
         menu.addItem(.separator())
@@ -146,6 +158,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
     @objc private func toggleIndicator() { settings.indicatorEnabled.toggle(); changed() }
     @objc private func toggleFollowApp() { settings.followActivatedApp.toggle(); changed() }
+    @objc private func toggleBrightnessKeys() { settings.brightnessKeys.toggle(); changed() }
     @objc private func toggleVideoMenuBar() { settings.hideMenuBarForVideo.toggle(); changed() }
     @objc private func openDesktopSettings() { SystemGestureCheck.openDesktopAndDockSettings() }
 

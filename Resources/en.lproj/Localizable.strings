@@ -25,6 +25,8 @@
 "menu.indicator" = "Space Indicator";
 "menu.indicator.show" = "Show When Switching";
 "menu.indicator.position" = "Position: %@";
+"menu.brightness" = "Display Brightness";
+"menu.brightness.keys" = "Brightness Keys Change the Display Under the Cursor";
 "menu.video" = "Full-Screen Video";
 "menu.video.hideMenuBar" = "Hide Menu Bar";
 "menu.launchAtLogin" = "Launch at Login";

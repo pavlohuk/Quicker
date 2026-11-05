@@ -10,6 +10,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let switcher = SpaceSwitcher()
     private let indicator = SpaceIndicator()
     private let videoMenuBar = VideoMenuBar()
+    private let brightness = BrightnessController()
+    private let brightnessHUD = BrightnessHUD()
+    /// Brightness keys whose key-down Quicker took, so their key-up is taken too.
+    private var takenBrightnessKeys: Set<Int> = []
     /// Target of our own switch, shown once the Dock has actually landed there.
     private var pendingIndicator: SpaceSnapshot?
     private var pendingFallback: DispatchWorkItem?
@@ -51,6 +55,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         is_ds_set_mouse_handler { down, x, y, flags in
             AppDelegate.current?.dockClicks.handle(down: down, location: CGPoint(x: x, y: y), flags: flags) ?? false
         }
+        is_ds_set_system_handler { event in
+            guard let event else { return false }
+            let cgEvent = Unmanaged<CGEvent>.fromOpaque(event).takeUnretainedValue()
+            return AppDelegate.current?.handleSystemDefined(cgEvent) ?? false
+        }
+        brightness.onChange = { [weak self] id, value in self?.brightnessHUD.update(id, value) }
+        brightnessHUD.onSet = { [weak self] id, value, animated in self?.brightness.set(id, value, animated: animated) }
         is_ds_set_intercept(Settings.shared.enabled)
 
         let statusBar = StatusBarController()
@@ -61,6 +72,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusBar.isAccessibilityGranted = { AXIsProcessTrusted() }
         statusBar.isInterceptActive = { is_ds_tap_installed() }
         self.statusBar = statusBar
+        brightnessHUD.menuBarIcon = { [weak self] in self?.statusBar?.iconFrame }
 
         switcher.onShowSpace = { [weak self] snapshot, switched in
             self?.spaceRequested(snapshot, switched: switched)
@@ -350,6 +362,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: Misc
 
     /// `kill -USR1 <pid>` switches to the next space, `kill -USR2` to the previous one (handy for testing from a shell).
+    // MARK: Brightness keys
+
+    /// Brightness up and down (F1, F2) change the display under the cursor in steps of 1/16, or
+    /// 1/64 with ⌥⇧ like macOS, and show the brightness HUD. Displays Quicker cannot reach are
+    /// left to the system.
+    private func handleSystemDefined(_ event: CGEvent) -> Bool {
+        guard let ns = NSEvent(cgEvent: event), ns.type == .systemDefined, ns.subtype.rawValue == 8 else { return false }
+        let key = (ns.data1 & 0xFFFF0000) >> 16
+        let isDown = (ns.data1 & 0xFF00) >> 8 == 0xA
+        // NX_KEYTYPE_BRIGHTNESS_UP, NX_KEYTYPE_BRIGHTNESS_DOWN
+        guard key == 2 || key == 3 else { return false }
+        guard isDown else { return takenBrightnessKeys.remove(key) != nil }
+
+        guard Settings.shared.brightnessKeys, let display = brightness.displayUnderMouse(),
+              brightness.canControl(display.id) else { return false }
+        takenBrightnessKeys.insert(key)
+        let fine = ns.modifierFlags.isSuperset(of: [.option, .shift])
+        brightness.step(display.id, direction: key == 2 ? 1 : -1, step: fine ? 1.0 / 64 : 1.0 / 16)
+        brightnessHUD.show(display, value: brightness.value(of: display.id) ?? 0.5, corner: Settings.shared.indicatorCorner)
+        return true
+    }
+
     private func installSignalHandlers() {
         let mapping: [(Int32, SpaceStep)] = [(SIGUSR1, .next), (SIGUSR2, .previous)]
         for (sig, step) in mapping {

@@ -80,6 +80,24 @@ void is_ds_set_flags_handler(ISFlagsHandler handler);
 /// Posts the modifier changes held back by the flags handler, in their original order.
 void is_ds_release_held_flags(void);
 
+/// Called from the event tap for every system-defined event (NX_SYSDEFINED: brightness and media
+/// keys). `event` is the CGEventRef. Return true to swallow it.
+typedef bool (*ISSystemDefinedHandler)(const void *event);
+void is_ds_set_system_handler(ISSystemDefinedHandler handler);
+
+// ---- Display brightness over DDC/CI (external displays on Apple silicon) ----
+
+/// The DDC service of the external display with these EDID numbers (CGDisplayVendorNumber,
+/// CGDisplayModelNumber, CGDisplaySerialNumber), retained, or NULL. When none matches and there
+/// is exactly one external display service, `sole_fallback` makes it return that one. Walks the
+/// whole I/O Registry: call it off the main thread.
+const void *is_ddc_service(uint32_t vendor, uint32_t model, uint32_t serial, bool sole_fallback);
+void is_ddc_release(const void *service);
+/// Reads VCP feature `code` (0x10 = brightness). Slow (about 50 ms): call it off the main thread.
+bool is_ddc_read(const void *service, uint8_t code, uint16_t *current, uint16_t *maximum);
+/// Sets VCP feature `code` to `value`. Takes about 20 ms: call it off the main thread.
+bool is_ddc_write(const void *service, uint8_t code, uint16_t value);
+
 #ifdef __cplusplus
 }
 #endif

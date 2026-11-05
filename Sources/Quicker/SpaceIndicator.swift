@@ -73,11 +73,11 @@ final class SpaceIndicator {
         return panel
     }
 
-    private static let cornerRadius: CGFloat = 22
+    static let cornerRadius: CGFloat = 22
 
     /// Liquid Glass like the system's own HUDs (volume, brightness) on macOS 26 and later, a
     /// blurred HUD material before that.
-    private static func background(around content: NSView) -> NSView {
+    static func background(around content: NSView, cornerRadius: CGFloat = cornerRadius) -> NSView {
         if #available(macOS 26.0, *) {
             let glass = NSGlassEffectView()
             // The look of the system's volume and brightness HUDs. Measured beside the volume HUD
@@ -183,6 +183,11 @@ final class SpaceIndicator {
     private func frame(for size: NSSize, corner: IndicatorCorner) -> NSRect {
         let mouse = NSEvent.mouseLocation
         let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main
+        return Self.frame(for: size, corner: corner, on: screen, margin: margin)
+    }
+
+    /// Frame at the requested position on `screen`, inside its visible area.
+    static func frame(for size: NSSize, corner: IndicatorCorner, on screen: NSScreen?, margin: CGFloat = 12) -> NSRect {
         let area = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let x: CGFloat
         let y: CGFloat
@@ -198,7 +203,7 @@ final class SpaceIndicator {
 }
 
 /// Never takes focus, so showing it does not disturb the frontmost app.
-private final class IndicatorPanel: NSPanel {
+final class IndicatorPanel: NSPanel {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
     /// Liquid Glass in a window without active appearance is drawn flat and frosted. This panel

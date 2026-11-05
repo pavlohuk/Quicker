@@ -51,6 +51,7 @@ final class Settings {
         static let followActivatedApp = "followActivatedApp"
         static let hideMenuBarForVideo = "hideMenuBarForVideo"
         static let longSwipeSkipsMore = "longSwipeSkipsMore"
+        static let brightnessKeys = "brightnessKeys"
     }
 
     private let defaults = UserDefaults.standard
@@ -67,6 +68,7 @@ final class Settings {
             Key.followActivatedApp: true,
             Key.hideMenuBarForVideo: true,
             Key.longSwipeSkipsMore: true,
+            Key.brightnessKeys: true,
         ])
     }
 
@@ -125,6 +127,13 @@ final class Settings {
     var hideMenuBarForVideo: Bool {
         get { defaults.bool(forKey: Key.hideMenuBarForVideo) }
         set { defaults.set(newValue, forKey: Key.hideMenuBarForVideo) }
+    }
+
+    /// The brightness keys change the display under the cursor, external ones too, and show
+    /// Quicker's own brightness HUD.
+    var brightnessKeys: Bool {
+        get { defaults.bool(forKey: Key.brightnessKeys) }
+        set { defaults.set(newValue, forKey: Key.brightnessKeys) }
     }
 
     var indicatorCorner: IndicatorCorner {

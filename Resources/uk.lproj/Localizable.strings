@@ -25,6 +25,8 @@
 "menu.indicator" = "Індикатор столу";
 "menu.indicator.show" = "Показувати при перемиканні";
 "menu.indicator.position" = "Положення: %@";
+"menu.brightness" = "Яскравість дисплеїв";
+"menu.brightness.keys" = "Клавіші яскравості — дисплей під курсором";
 "menu.video" = "Відео на весь екран";
 "menu.video.hideMenuBar" = "Ховати смугу меню";
 "menu.launchAtLogin" = "Запускати при вході";

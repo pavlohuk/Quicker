@@ -218,6 +218,10 @@ static bool g_intercept = true;
 static ISSwipeHandler g_handler = NULL;
 static ISKeyHandler g_key_handler = NULL;
 static ISMouseHandler g_mouse_handler = NULL;
+static ISSystemDefinedHandler g_system_handler = NULL;
+
+/// NX_SYSDEFINED: media and brightness keys, among other things.
+static const CGEventType kEventSystemDefined = (CGEventType)14;
 static ISFlagsHandler g_flags_handler = NULL;
 static CGEventRef g_held_flags[8];      // modifier changes held back by the flags handler, in order
 static unsigned g_held_flags_count = 0;
@@ -408,6 +412,10 @@ static CGEventRef tap_callback(CGEventTapProxy proxy, CGEventType type, CGEventR
         return NULL;
     }
 
+    if (type == kEventSystemDefined) {
+        return g_system_handler && g_system_handler(event) ? NULL : event;
+    }
+
     if (type == kCGEventLeftMouseDown || type == kCGEventLeftMouseUp) {
         if (!g_mouse_handler) return event;
         if (CGEventGetIntegerValueField(event, kCGEventSourceUserData) == IS_REPLAY_MARKER) return event;
@@ -496,7 +504,8 @@ bool is_ds_tap_install(void) {
     if (g_tap) return true;
     CGEventMask mask = (1ULL << kEventGesture) | (1ULL << kEventDockControl)
         | CGEventMaskBit(kCGEventKeyDown) | CGEventMaskBit(kCGEventKeyUp) | CGEventMaskBit(kCGEventFlagsChanged)
-        | CGEventMaskBit(kCGEventLeftMouseDown) | CGEventMaskBit(kCGEventLeftMouseUp);
+        | CGEventMaskBit(kCGEventLeftMouseDown) | CGEventMaskBit(kCGEventLeftMouseUp)
+        | CGEventMaskBit(kEventSystemDefined);
     g_tap = CGEventTapCreate(kCGSessionEventTap, kCGHeadInsertEventTap, kCGEventTapOptionDefault, mask, tap_callback, NULL);
     if (!g_tap) return false;
     g_tap_source = CFMachPortCreateRunLoopSource(NULL, g_tap, 0);
@@ -516,6 +525,7 @@ void is_ds_set_intercept(bool enabled) { g_intercept = enabled; if (!enabled) re
 void is_ds_set_swipe_handler(ISSwipeHandler handler) { g_handler = handler; }
 void is_ds_set_key_handler(ISKeyHandler handler) { g_key_handler = handler; }
 void is_ds_set_mouse_handler(ISMouseHandler handler) { g_mouse_handler = handler; }
+void is_ds_set_system_handler(ISSystemDefinedHandler handler) { g_system_handler = handler; }
 void is_ds_set_flags_handler(ISFlagsHandler handler) { g_flags_handler = handler; }
 
 void is_ds_release_held_flags(void) {

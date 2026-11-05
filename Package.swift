@@ -11,6 +11,7 @@ let package = Package(
                 .linkedFramework("CoreFoundation"),
                 .linkedFramework("CoreGraphics"),
                 .linkedFramework("ApplicationServices"),
+                .linkedFramework("IOKit"),
             ]
         ),
         .executableTarget(
