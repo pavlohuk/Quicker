@@ -8,6 +8,9 @@ final class BrightnessHUD {
     var onSet: ((CGDirectDisplayID, Double, _ animated: Bool) -> Void)?
     /// Screen frame of Quicker's menu bar icon, when it is shown; the HUD is placed under it.
     var menuBarIcon: (() -> NSRect?)?
+    /// Called when the HUD appears (true) and starts to hide (false), to highlight the menu bar
+    /// icon meanwhile, like the system does for the volume icon.
+    var onVisibilityChange: ((Bool) -> Void)?
 
     private var panel: NSPanel?
     private let content: NSView
@@ -142,6 +145,7 @@ final class BrightnessHUD {
             panel.alphaValue = 0
             panel.orderFrontRegardless()
             isVisible = true
+            onVisibilityChange?(true)
             appear(panel)
         }
         scheduleHide()
@@ -189,6 +193,7 @@ final class BrightnessHUD {
         guard let panel, isVisible else { return }
         if hover.isInside || bar.isDragging { return }  // shown again on exit / drag end
         isVisible = false
+        onVisibilityChange?(false)
         animate(scale: 0.902, omega: 15, opacity: 0, fade: 0.5, delay: 0.016,
                 curve: CAMediaTimingFunction(controlPoints: 0.1, 0.6, 0.3, 1))
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.52) { [weak self] in

@@ -15,6 +15,25 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         else { return nil }
         return window.frame
     }
+    /// Shows a rounded backdrop behind the icon, like the one the system draws behind the
+    /// volume icon while its HUD is up. The button's own highlight does not draw it.
+    func setHighlighted(_ highlighted: Bool) {
+        guard let bar = item.button?.window?.contentView else { return }
+        if highlighted {
+            let height = min(24, bar.bounds.height)
+            highlight.frame = NSRect(x: 0, y: ((bar.bounds.height - height) / 2).rounded(),
+                                     width: bar.bounds.width, height: height)
+            if highlight.superview !== bar {
+                bar.addSubview(highlight, positioned: .below, relativeTo: bar.subviews.first)
+            }
+        }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = highlighted ? 0.1 : 0.25
+            highlight.animator().alphaValue = highlighted ? 1 : 0
+        }
+    }
+    private let highlight = StatusItemHighlight()
+
     var isAccessibilityGranted: (() -> Bool)?
     var isInterceptActive: (() -> Bool)?
 
@@ -29,7 +48,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     func updateIcon() {
         guard let button = item.button else { return }
         let ready = settings.enabled && (isInterceptActive?() ?? false)
-        let symbol = ready ? "iphone.app.switcher" : "rectangle.slash"
+        let symbol = ready ? "ipad.sizes" : "rectangle.slash"
         let image = NSImage(systemSymbolName: symbol, accessibilityDescription: "Quicker")
             ?? NSImage(systemSymbolName: "arrow.left.arrow.right", accessibilityDescription: "Quicker")
         image?.isTemplate = true
@@ -196,4 +215,25 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     }
 
     @objc private func quit() { NSApp.terminate(nil) }
+}
+
+/// The rounded backdrop behind a highlighted menu bar icon; follows the menu bar's appearance.
+private final class StatusItemHighlight: NSView {
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        alphaValue = 0
+        autoresizingMask = [.width, .minYMargin, .maxYMargin]
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override var wantsUpdateLayer: Bool { true }
+
+    override func updateLayer() {
+        layer?.cornerRadius = bounds.height / 2
+        layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(0.16).cgColor
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }

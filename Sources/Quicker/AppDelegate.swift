@@ -73,6 +73,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusBar.isInterceptActive = { is_ds_tap_installed() }
         self.statusBar = statusBar
         brightnessHUD.menuBarIcon = { [weak self] in self?.statusBar?.iconFrame }
+        brightnessHUD.onVisibilityChange = { [weak self] visible in self?.statusBar?.setHighlighted(visible) }
 
         switcher.onShowSpace = { [weak self] snapshot, switched in
             self?.spaceRequested(snapshot, switched: switched)
