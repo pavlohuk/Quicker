@@ -52,8 +52,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         is_ds_set_flags_handler { flags in
             AppDelegate.current?.handleFlags(CGEventFlags(rawValue: flags)) ?? false
         }
-        is_ds_set_mouse_handler { down, x, y, flags in
-            AppDelegate.current?.dockClicks.handle(down: down, location: CGPoint(x: x, y: y), flags: flags) ?? false
+        is_ds_set_mouse_handler { kind, x, y, flags in
+            AppDelegate.current?.dockClicks.handle(kind: kind, location: CGPoint(x: x, y: y), flags: flags) ?? false
         }
         is_ds_set_system_handler { event in
             guard let event else { return false }

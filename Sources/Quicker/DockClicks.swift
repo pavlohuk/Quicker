@@ -6,8 +6,9 @@ import CShims
 ///
 /// Left alone, the click activates the app first, and only then can Quicker follow it to its
 /// space: a noticeable delay, and macOS may give focus to another app on that space. Instead, the
-/// mouse-down on such an icon is held back, Quicker switches to the app's space instantly,
-/// and the click is then replayed to the Dock. The Dock finds the app's windows on the current
+/// mouse-down on such an icon is held back. If the button comes up without the pointer moving,
+/// Quicker switches to the app's space instantly and replays the click to the Dock. A drag (to
+/// reorder icons) or a long press (the Dock menu) gets its mouse-down back at once, untouched. The Dock finds the app's windows on the current
 /// space and simply activates it, exactly as for an app on the current desktop.
 final class DockClickInterceptor {
     private let switcher: SpaceSwitcher
@@ -24,10 +25,19 @@ final class DockClickInterceptor {
         let location: CGPoint
         let flags: CGEventFlags
         let target: Int
+        let window: UInt32
+        /// Set once the button came up and the switch started.
+        var switching = false
         var upReceived = false
     }
     private var pending: Pending?
     private var replayWork: DispatchWorkItem?
+    private var holdWork: DispatchWorkItem?
+
+    /// A press held this long without moving is left to the Dock (its menu).
+    private let longPress: TimeInterval = 0.35
+    /// Moving farther than this while pressed is a drag, left to the Dock.
+    private let dragSlop: CGFloat = 4
 
     /// Clicks farther than this from the Dock's screen edge are never inspected.
     private let edgeBand: CGFloat = 180
@@ -40,24 +50,25 @@ final class DockClickInterceptor {
         self.switcher = switcher
     }
 
-    /// Left mouse events from the event tap. Returns true to swallow the event.
+    /// Left mouse events from the event tap (`kind` 0 down, 1 up, 2 drag). Returns true to
+    /// swallow the event.
     ///
     /// Runs inside the event tap: until it returns, no input reaches any app, so the cheap
     /// checks come first and nothing here may wait on another app.
-    func handle(down: Bool, location: CGPoint, flags rawFlags: UInt64) -> Bool {
-        if !down {
-            // The mouse-up of a held click is replayed together with its mouse-down.
-            guard var held = pending else { return false }
-            held.upReceived = true
-            pending = held
-            return true
+    func handle(kind: Int32, location: CGPoint, flags rawFlags: UInt64) -> Bool {
+        switch kind {
+        case 0: return mouseDown(at: location, flags: CGEventFlags(rawValue: rawFlags))
+        case 1: return mouseUp()
+        default: return mouseDragged(to: location)
         }
+    }
+
+    private func mouseDown(at location: CGPoint, flags: CGEventFlags) -> Bool {
         if pending != nil { return true }
 
         let settings = Settings.shared
         guard settings.enabled, settings.followActivatedApp, is_ds_tap_installed() else { return false }
         // ⌘-click (show in Finder), ⌥-click (hide others), ⌃-click (menu): leave to the Dock.
-        let flags = CGEventFlags(rawValue: rawFlags)
         guard flags.intersection([.maskCommand, .maskControl, .maskAlternate, .maskShift]).isEmpty,
               isNearDockEdge(location),
               !SystemGestureCheck.systemSwitchOnActivateEnabled(),
@@ -70,21 +81,65 @@ final class DockClickInterceptor {
         let indexes = buffer.prefix(found).map(Int.init)
         guard let target = indexes.first, !indexes.contains(state.current) else { return false }
 
+        pending = Pending(app: app, location: location, flags: flags, target: target, window: windows[0])
+        let work = DispatchWorkItem { [weak self] in self?.giveBack(dragTo: nil) }
+        holdWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + longPress, execute: work)
+        return true
+    }
+
+    private func mouseUp() -> Bool {
+        // A real mouse-up that comes after a replay passes through untouched.
+        guard var held = pending else { return false }
+        held.upReceived = true
+        if held.switching {
+            pending = held
+            return true
+        }
+        holdWork?.cancel()
+        holdWork = nil
+
         // Put the app's window on top of its Space before going there, so the Space does not
         // first appear with another app's window in front.
-        let focused = is_focus_window(app.processIdentifier, windows[0])
-        let name = app.localizedName ?? "pid \(app.processIdentifier)"
+        let focused = is_focus_window(held.app.processIdentifier, held.window)
+        let name = held.app.localizedName ?? "pid \(held.app.processIdentifier)"
         // The WindowServer needs a moment to reorder the window before the Space appears.
-        guard switcher.jump(toSpaceIndex: target, reason: "dock \(name)\(focused ? "" : " (no prefocus)")",
-                            after: focused ? prefocusLead : 0) else { return false }
-        pending = Pending(app: app, location: location, flags: flags, target: target)
+        guard switcher.jump(toSpaceIndex: held.target, reason: "dock \(name)\(focused ? "" : " (no prefocus)")",
+                            after: focused ? prefocusLead : 0) else {
+            pending = nil
+            post(.leftMouseDown, at: held.location, flags: held.flags)
+            post(.leftMouseUp, at: held.location, flags: held.flags)
+            return true
+        }
+        held.switching = true
+        pending = held
         scheduleReplay(after: replayTimeout)
         return true
     }
 
+    private func mouseDragged(to location: CGPoint) -> Bool {
+        guard let held = pending else { return false }
+        if held.switching { return true }
+        // Small wobble of a click: keep it from the Dock, which has not seen the mouse-down.
+        if hypot(location.x - held.location.x, location.y - held.location.y) <= dragSlop { return true }
+        giveBack(dragTo: location)
+        return true
+    }
+
+    /// Hands a press that is not a plain click back to the Dock: its mouse-down, then the drag
+    /// that revealed it, so the Dock starts the drag (or shows its menu) as usual.
+    private func giveBack(dragTo location: CGPoint?) {
+        holdWork?.cancel()
+        holdWork = nil
+        guard let held = pending, !held.switching else { return }
+        pending = nil
+        post(.leftMouseDown, at: held.location, flags: held.flags)
+        if let location { post(.leftMouseDragged, at: location, flags: held.flags) }
+    }
+
     /// Every active-space change; replays the held click once the target space is reached.
     func spaceDidChange(to index: Int) {
-        guard let held = pending, held.target == index else { return }
+        guard let held = pending, held.switching, held.target == index else { return }
         scheduleReplay(after: 0.03)
     }
 

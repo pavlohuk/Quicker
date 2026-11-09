@@ -416,11 +416,12 @@ static CGEventRef tap_callback(CGEventTapProxy proxy, CGEventType type, CGEventR
         return g_system_handler && g_system_handler(event) ? NULL : event;
     }
 
-    if (type == kCGEventLeftMouseDown || type == kCGEventLeftMouseUp) {
+    if (type == kCGEventLeftMouseDown || type == kCGEventLeftMouseUp || type == kCGEventLeftMouseDragged) {
         if (!g_mouse_handler) return event;
         if (CGEventGetIntegerValueField(event, kCGEventSourceUserData) == IS_REPLAY_MARKER) return event;
         CGPoint p = CGEventGetLocation(event);
-        return g_mouse_handler(type == kCGEventLeftMouseDown, p.x, p.y, (uint64_t)CGEventGetFlags(event)) ? NULL : event;
+        int32_t kind = type == kCGEventLeftMouseDown ? 0 : type == kCGEventLeftMouseUp ? 1 : 2;
+        return g_mouse_handler(kind, p.x, p.y, (uint64_t)CGEventGetFlags(event)) ? NULL : event;
     }
 
     if (type == kCGEventKeyDown || type == kCGEventKeyUp) {
@@ -505,6 +506,7 @@ bool is_ds_tap_install(void) {
     CGEventMask mask = (1ULL << kEventGesture) | (1ULL << kEventDockControl)
         | CGEventMaskBit(kCGEventKeyDown) | CGEventMaskBit(kCGEventKeyUp) | CGEventMaskBit(kCGEventFlagsChanged)
         | CGEventMaskBit(kCGEventLeftMouseDown) | CGEventMaskBit(kCGEventLeftMouseUp)
+        | CGEventMaskBit(kCGEventLeftMouseDragged)
         | CGEventMaskBit(kEventSystemDefined);
     g_tap = CGEventTapCreate(kCGSessionEventTap, kCGHeadInsertEventTap, kCGEventTapOptionDefault, mask, tap_callback, NULL);
     if (!g_tap) return false;

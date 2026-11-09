@@ -62,9 +62,10 @@ void is_ds_set_swipe_handler(ISSwipeHandler handler);
 /// event tap lets them through.
 #define IS_REPLAY_MARKER 0x49535250
 
-/// Called from the event tap for every left mouse-down (`down` = true) and mouse-up, in global
-/// top-left screen coordinates. Return true to swallow the event. Replayed events are not reported.
-typedef bool (*ISMouseHandler)(bool down, double x, double y, uint64_t flags);
+/// Called from the event tap for every left mouse-down (`kind` 0), mouse-up (1) and mouse-drag (2),
+/// in global top-left screen coordinates. Return true to swallow the event. Replayed events are
+/// not reported.
+typedef bool (*ISMouseHandler)(int32_t kind, double x, double y, uint64_t flags);
 void is_ds_set_mouse_handler(ISMouseHandler handler);
 
 /// Called from the event tap for every key-down. Return true to swallow the key (its key-up is
