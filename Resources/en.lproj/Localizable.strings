@@ -29,6 +29,8 @@
 "menu.brightness.keys" = "Brightness Keys Change the Display Under the Cursor";
 "menu.video" = "Full-Screen Video";
 "menu.video.hideMenuBar" = "Hide Menu Bar";
+"menu.dock" = "Dock";
+"menu.dock.external" = "Always Show With an External Display";
 "menu.launchAtLogin" = "Launch at Login";
 "menu.quit" = "Quit";
 

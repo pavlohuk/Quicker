@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let videoMenuBar = VideoMenuBar()
     private let brightness = BrightnessController()
     private let brightnessHUD = BrightnessHUD()
+    private let dockAutoHide = DockAutoHide()
     /// Brightness keys whose key-down Quicker took, so their key-up is taken too.
     private var takenBrightnessKeys: Set<Int> = []
     /// Target of our own switch, shown once the Dock has actually landed there.
@@ -68,6 +69,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusBar.onSettingsChanged = { [weak self] in
             is_ds_set_intercept(Settings.shared.enabled)
             self?.videoMenuBar.update(self?.switcher.snapshot(usePrediction: false))
+            self?.dockAutoHide.update()
         }
         statusBar.isAccessibilityGranted = { AXIsProcessTrusted() }
         statusBar.isInterceptActive = { is_ds_tap_installed() }
@@ -92,6 +94,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         installSignalHandlers()
         startInterception()
         videoMenuBar.update(switcher.snapshot(usePrediction: false))
+        dockAutoHide.update()
     }
 
     func applicationWillTerminate(_ notification: Notification) {

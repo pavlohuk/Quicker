@@ -52,6 +52,7 @@ final class Settings {
         static let hideMenuBarForVideo = "hideMenuBarForVideo"
         static let longSwipeSkipsMore = "longSwipeSkipsMore"
         static let brightnessKeys = "brightnessKeys"
+        static let dockShownOnExternalDisplay = "dockShownOnExternalDisplay"
     }
 
     private let defaults = UserDefaults.standard
@@ -69,6 +70,7 @@ final class Settings {
             Key.hideMenuBarForVideo: true,
             Key.longSwipeSkipsMore: true,
             Key.brightnessKeys: true,
+            Key.dockShownOnExternalDisplay: true,
         ])
     }
 
@@ -134,6 +136,12 @@ final class Settings {
     var brightnessKeys: Bool {
         get { defaults.bool(forKey: Key.brightnessKeys) }
         set { defaults.set(newValue, forKey: Key.brightnessKeys) }
+    }
+
+    /// Keep an auto-hiding Dock shown while an external display is connected.
+    var dockShownOnExternalDisplay: Bool {
+        get { defaults.bool(forKey: Key.dockShownOnExternalDisplay) }
+        set { defaults.set(newValue, forKey: Key.dockShownOnExternalDisplay) }
     }
 
     var indicatorCorner: IndicatorCorner {

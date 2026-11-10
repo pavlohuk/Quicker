@@ -136,6 +136,10 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         menu.addItem(check(L("menu.video.hideMenuBar"), on: settings.hideMenuBarForVideo, #selector(toggleVideoMenuBar), indent: 1))
         menu.addItem(.separator())
 
+        menu.addItem(header(L("menu.dock")))
+        menu.addItem(check(L("menu.dock.external"), on: settings.dockShownOnExternalDisplay, #selector(toggleDockExternal), indent: 1))
+        menu.addItem(.separator())
+
         menu.addItem(check(L("menu.launchAtLogin"), on: LoginItem.isEnabled, #selector(toggleLoginItem)))
         menu.addItem(.separator())
         menu.addItem(action(L("menu.quit"), #selector(quit), key: "q"))
@@ -179,6 +183,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     @objc private func toggleFollowApp() { settings.followActivatedApp.toggle(); changed() }
     @objc private func toggleBrightnessKeys() { settings.brightnessKeys.toggle(); changed() }
     @objc private func toggleVideoMenuBar() { settings.hideMenuBarForVideo.toggle(); changed() }
+    @objc private func toggleDockExternal() { settings.dockShownOnExternalDisplay.toggle(); changed() }
     @objc private func openDesktopSettings() { SystemGestureCheck.openDesktopAndDockSettings() }
 
     @objc private func setCorner(_ sender: NSMenuItem) {

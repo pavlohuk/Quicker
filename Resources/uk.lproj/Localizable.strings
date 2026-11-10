@@ -29,6 +29,8 @@
 "menu.brightness.keys" = "Клавіші яскравості — дисплей під курсором";
 "menu.video" = "Відео на весь екран";
 "menu.video.hideMenuBar" = "Ховати смугу меню";
+"menu.dock" = "Dock";
+"menu.dock.external" = "Не ховати із зовнішнім дисплеєм";
 "menu.launchAtLogin" = "Запускати при вході";
 "menu.quit" = "Вийти";
 
