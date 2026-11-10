@@ -26,9 +26,11 @@ final class SettingsWindowController {
     private func makeWindow() -> NSWindow {
         weak var window: NSWindow?
         let host = NSHostingController(rootView: SettingsView(setTitle: { window?.title = $0 }).environmentObject(model))
+        // Only a minimum size from SwiftUI, so the window can be resized freely above it.
+        if #available(macOS 13.0, *) { host.sizingOptions = [.minSize] }
         let created = NSWindow(contentViewController: host)
         window = created
-        created.styleMask = [.titled, .closable, .miniaturizable, .fullSizeContentView]
+        created.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
         created.titlebarAppearsTransparent = true
         created.toolbarStyle = .unified
         // An empty toolbar lets the sidebar reach the top of the window, as in System Settings.
@@ -41,19 +43,15 @@ final class SettingsWindowController {
 }
 
 private enum SettingsSection: String, CaseIterable, Identifiable {
-    case general, hotkeys, apps, indicator, brightness, video, dock, mouse
+    case general, spaces, displays, mouse
 
     var id: Self { self }
 
     var title: String {
         switch self {
         case .general: return L("settings.tab.general")
-        case .hotkeys: return L("settings.tab.hotkeys")
-        case .apps: return L("settings.tab.apps")
-        case .indicator: return L("settings.tab.indicator")
-        case .brightness: return L("settings.tab.brightness")
-        case .video: return L("settings.tab.video")
-        case .dock: return L("menu.dock")
+        case .spaces: return L("settings.tab.spaces")
+        case .displays: return L("settings.tab.displays")
         case .mouse: return L("settings.tab.mouse")
         }
     }
@@ -61,23 +59,17 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .general: return "gearshape.fill"
-        case .hotkeys: return "keyboard.fill"
-        case .apps: return "square.grid.2x2.fill"
-        case .indicator: return "rectangle.split.3x1.fill"
-        case .brightness: return "sun.max.fill"
-        case .video: return "play.fill"
-        case .dock: return "dock.rectangle"
+        case .spaces: return "rectangle.split.3x1.fill"
+        case .displays: return "sun.max.fill"
         case .mouse: return "computermouse.fill"
         }
     }
 
-    /// Icon tile colour, after System Settings: mostly blue and grey, the Dock on black.
+    /// Icon tile colour, after System Settings.
     var tint: Color {
         switch self {
-        case .general, .hotkeys, .mouse: return Color(white: 0.55)
-        case .apps, .indicator, .brightness: return .blue
-        case .video: return .red
-        case .dock: return Color(white: 0.12)
+        case .general, .mouse: return Color(white: 0.55)
+        case .spaces, .displays: return .blue
         }
     }
 
@@ -120,19 +112,15 @@ private struct SettingsView: View {
             Group {
                 switch section {
                 case .general: GeneralPane()
-                case .hotkeys: HotkeysPane()
-                case .apps: AppsPane()
-                case .indicator: IndicatorPane()
-                case .brightness: BrightnessPane()
-                case .video: VideoPane()
-                case .dock: DockPane()
+                case .spaces: SpacesPane()
+                case .displays: DisplaysPane()
                 case .mouse: MousePane()
                 }
             }
             .onAppear { setTitle(section.title) }
             .onChange(of: section) { setTitle($0.title) }
         }
-        .frame(minWidth: 720, minHeight: 480)
+        .frame(minWidth: 620, idealWidth: 720, minHeight: 420, idealHeight: 480)
     }
 }
 
@@ -182,45 +170,84 @@ private struct Pane<Content: View>: View {
     }
 }
 
+/// What Quicker needs from the system, and app-wide options.
 private struct GeneralPane: View {
     @EnvironmentObject var model: SettingsModel
 
     var body: some View {
+        let granted = AXIsProcessTrusted()
+        let fingers = SystemGestureCheck.systemSwipeFingers()
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
         Pane {
             Section {
-                Toggle(L("menu.enabled"), isOn: model.binding(\.enabled))
-                Toggle(L("menu.invertSwipe"), isOn: model.binding(\.invertDirection))
-                Toggle(L("menu.longSwipe"), isOn: model.binding(\.longSwipeSkipsMore))
+                StatusRow(title: L("settings.accessibility"), ok: granted,
+                          value: L(granted ? "settings.accessibility.granted" : "settings.accessibility.missing"),
+                          action: granted ? nil : (L("status.grantAccessibility"), {
+                              let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+                              _ = AXIsProcessTrustedWithOptions(options)
+                              SystemGestureCheck.openAccessibilitySettings()
+                          }))
+                StatusRow(title: L("settings.swipe"), ok: fingers != nil,
+                          value: fingers.map { L("settings.swipe.fingers", $0) } ?? L("settings.swipe.off"),
+                          action: fingers != nil ? nil : (L("status.openTrackpad"), { SystemGestureCheck.openTrackpadSettings() }))
+            } header: {
+                Text(L("settings.status"))
+            } footer: {
+                Text(L("settings.status.hint")).foregroundStyle(.secondary)
             }
             Section {
                 Toggle(L("menu.launchAtLogin"), isOn: model.launchAtLogin)
+                LabeledContent(L("settings.version"), value: version)
             }
         }
     }
 }
 
-private struct HotkeysPane: View {
+/// A requirement with a green or orange mark, and a button to fix it when it is not met.
+private struct StatusRow: View {
+    let title: String
+    let ok: Bool
+    let value: String
+    let action: (String, () -> Void)?
+
+    var body: some View {
+        LabeledContent(title) {
+            HStack(spacing: 8) {
+                if let action {
+                    Button(action.0, action: action.1)
+                }
+                Image(systemName: ok ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                    .foregroundStyle(ok ? .green : .orange)
+                Text(value).foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+/// Everything about switching between Spaces: swipe, hotkeys, following apps, the indicator.
+private struct SpacesPane: View {
     @EnvironmentObject var model: SettingsModel
 
     var body: some View {
         let m = model.settings.hotkeyModifier.symbol
+        let enabled = model.settings.enabled
         Pane {
             Section {
+                Toggle(L("menu.enabled"), isOn: model.binding(\.enabled))
+            }
+            Section(L("settings.section.swipe")) {
+                Toggle(L("menu.invertSwipe"), isOn: model.binding(\.invertDirection))
+                Toggle(L("menu.longSwipe"), isOn: model.binding(\.longSwipeSkipsMore))
+            }
+            .disabled(!enabled)
+            Section(L("settings.tab.hotkeys")) {
                 Toggle(L("menu.hotkeys.digits", m), isOn: model.binding(\.hotkeyDigits))
                 Toggle(L("menu.hotkeys.arrows", m), isOn: model.binding(\.hotkeyArrows))
                 Picker(L("settings.modifier"), selection: model.binding(\.hotkeyModifier)) {
                     ForEach(HotkeyModifier.allCases, id: \.self) { Text($0.title).tag($0) }
                 }
             }
-        }
-    }
-}
-
-private struct AppsPane: View {
-    @EnvironmentObject var model: SettingsModel
-
-    var body: some View {
-        Pane {
+            .disabled(!enabled)
             Section {
                 Toggle(L("menu.followApp.toggle"), isOn: model.binding(\.followActivatedApp))
             } header: {
@@ -235,16 +262,8 @@ private struct AppsPane: View {
                     }
                 }
             }
-        }
-    }
-}
-
-private struct IndicatorPane: View {
-    @EnvironmentObject var model: SettingsModel
-
-    var body: some View {
-        Pane {
-            Section {
+            .disabled(!enabled)
+            Section(L("settings.tab.indicator")) {
                 Toggle(L("menu.indicator.show"), isOn: model.binding(\.indicatorEnabled))
                 Picker(L("settings.position"), selection: model.binding(\.indicatorCorner)) {
                     ForEach(IndicatorCorner.allCases, id: \.self) { Text($0.title).tag($0) }
@@ -255,37 +274,31 @@ private struct IndicatorPane: View {
     }
 }
 
-private struct BrightnessPane: View {
+private struct DisplaysPane: View {
     @EnvironmentObject var model: SettingsModel
 
     var body: some View {
         Pane {
             Section {
                 Toggle(L("menu.brightness.keys"), isOn: model.binding(\.brightnessKeys))
+            } header: {
+                Text(L("menu.brightness"))
+            } footer: {
+                Text(L("settings.footer.brightness")).foregroundStyle(.secondary)
             }
-        }
-    }
-}
-
-private struct VideoPane: View {
-    @EnvironmentObject var model: SettingsModel
-
-    var body: some View {
-        Pane {
             Section {
                 Toggle(L("menu.video.hideMenuBar"), isOn: model.binding(\.hideMenuBarForVideo))
+            } header: {
+                Text(L("menu.video"))
+            } footer: {
+                Text(L("settings.footer.video")).foregroundStyle(.secondary)
             }
-        }
-    }
-}
-
-private struct DockPane: View {
-    @EnvironmentObject var model: SettingsModel
-
-    var body: some View {
-        Pane {
             Section {
                 Toggle(L("menu.dock.external"), isOn: model.binding(\.dockShownOnExternalDisplay))
+            } header: {
+                Text(L("menu.dock"))
+            } footer: {
+                Text(L("settings.footer.dock")).foregroundStyle(.secondary)
             }
         }
     }
@@ -295,20 +308,24 @@ private struct MousePane: View {
     @EnvironmentObject var model: SettingsModel
 
     var body: some View {
+        let smooth = model.settings.smoothScroll
         Pane {
             Section {
                 Toggle(L("menu.scroll.smooth"), isOn: model.binding(\.smoothScroll))
                 Picker(L("settings.smoothness"), selection: model.binding(\.scrollSmoothness)) {
                     ForEach(ScrollSmoothness.allCases, id: \.self) { Text($0.title).tag($0) }
                 }
-                .disabled(!model.settings.smoothScroll)
+                .disabled(!smooth)
+            } header: {
+                Text(L("menu.scroll"))
+            } footer: {
+                Text(L("settings.footer.smooth")).foregroundStyle(.secondary)
             }
             Section {
                 Toggle(L("settings.scrollBounce"), isOn: model.binding(\.scrollBounce))
-                    .disabled(!model.settings.smoothScroll)
+                    .disabled(!smooth)
             } footer: {
-                Text(L("settings.scrollBounce.hint"))
-                    .foregroundStyle(.secondary)
+                Text(L("settings.scrollBounce.hint")).foregroundStyle(.secondary)
             }
         }
     }

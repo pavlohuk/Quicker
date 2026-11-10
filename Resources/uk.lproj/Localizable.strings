@@ -37,17 +37,30 @@
 "menu.indicator.quick" = "Показувати плашку столу";
 "menu.dock.quick" = "Не ховати Dock із зовнішнім дисплеєм";
 "settings.tab.general" = "Загальне";
-"settings.tab.hotkeys" = "Клавіші";
-"settings.tab.apps" = "Застосунки";
-"settings.tab.indicator" = "Плашка";
-"settings.tab.brightness" = "Яскравість";
-"settings.tab.video" = "Відео";
+"settings.tab.spaces" = "Столи";
+"settings.section.swipe" = "Свайп на трекпаді";
+"settings.tab.hotkeys" = "Гарячі клавіші";
+"settings.tab.indicator" = "Плашка столу";
 "settings.tab.mouse" = "Миша";
 "settings.modifier" = "Модифікатор";
 "settings.position" = "Положення";
 "settings.smoothness" = "Плавність";
 "settings.scrollBounce" = "Пружний відскок на краях, як у трекпада";
 "settings.scrollBounce.hint" = "Надсилає прокрутку як жести трекпада. Деякі застосунки їх ігнорують і перестають прокручуватися.";
+"settings.tab.displays" = "Дисплеї";
+"settings.status" = "Стан";
+"settings.status.hint" = "Обидва потрібні Quicker, щоб миттєво перемикати столи.";
+"settings.accessibility" = "Дозвіл «Універсальний доступ»";
+"settings.accessibility.granted" = "Надано";
+"settings.accessibility.missing" = "Не надано";
+"settings.swipe" = "Системний свайп між столами";
+"settings.swipe.fingers" = "%ld пальці";
+"settings.swipe.off" = "Вимкнено";
+"settings.version" = "Версія";
+"settings.footer.brightness" = "Клавіші яскравості змінюють дисплей під курсором, зокрема зовнішні монітори, і показують смугу яскравості під іконкою Quicker.";
+"settings.footer.video" = "Ховає смугу меню на повноекранному столі, поки там грає відео. Лише якщо смуга меню налаштована не ховатися на весь екран.";
+"settings.footer.dock" = "Вимикає автоприховування Dock, поки підключено зовнішній дисплей, і вмикає назад, коли лишається тільки вбудований.";
+"settings.footer.smooth" = "Прокрутка колесом миші плавна, як на трекпаді. Працює з Logi Options+ і вільним обертанням колеса.";
 "menu.quit" = "Вийти";
 
 /* Indicator positions */

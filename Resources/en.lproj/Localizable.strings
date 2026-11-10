@@ -37,17 +37,30 @@
 "menu.indicator.quick" = "Show Space Indicator";
 "menu.dock.quick" = "Keep Dock Shown With an External Display";
 "settings.tab.general" = "General";
+"settings.tab.spaces" = "Spaces";
+"settings.section.swipe" = "Trackpad Swipe";
 "settings.tab.hotkeys" = "Hotkeys";
-"settings.tab.apps" = "Apps";
-"settings.tab.indicator" = "Indicator";
-"settings.tab.brightness" = "Brightness";
-"settings.tab.video" = "Video";
+"settings.tab.indicator" = "Space Indicator";
 "settings.tab.mouse" = "Mouse";
 "settings.modifier" = "Modifier";
 "settings.position" = "Position";
 "settings.smoothness" = "Smoothness";
 "settings.scrollBounce" = "Bounce at Edges Like a Trackpad";
 "settings.scrollBounce.hint" = "Sends scrolling as trackpad gestures. Some apps ignore them and stop scrolling.";
+"settings.tab.displays" = "Displays";
+"settings.status" = "Status";
+"settings.status.hint" = "Quicker needs both to switch Spaces instantly.";
+"settings.accessibility" = "Accessibility Permission";
+"settings.accessibility.granted" = "Granted";
+"settings.accessibility.missing" = "Not granted";
+"settings.swipe" = "System Swipe Between Desktops";
+"settings.swipe.fingers" = "%ld fingers";
+"settings.swipe.off" = "Off";
+"settings.version" = "Version";
+"settings.footer.brightness" = "The brightness keys change the display under the pointer, external monitors included, and show a brightness bar under the Quicker icon.";
+"settings.footer.video" = "Hides the menu bar on a full-screen Space while a video plays there. Only when the menu bar is set to stay visible in full screen.";
+"settings.footer.dock" = "Turns off Dock auto-hide while an external display is connected and turns it back on once only the built-in display is left.";
+"settings.footer.smooth" = "Mouse wheel scrolling glides like a trackpad. Works with Logi Options+ and free-spinning wheels.";
 "menu.quit" = "Quit";
 
 /* Indicator positions */

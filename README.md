@@ -118,14 +118,12 @@ The menu bar icon opens a short menu:
 - **Quick toggles.** Smooth scrolling, the Space indicator, and keeping the Dock shown with an external display.
 - **Settings…** (⌘,) opens the settings window. Opening Quicker again from Finder or Spotlight does the same.
 
-The settings window has six tabs:
+The settings window has a sidebar with four sections:
 
-- **General.** Enabled, Invert Swipe Direction (trackpad only), Longer Swipe Skips More Spaces, and Launch at Login (uses `SMAppService`).
-- **Hotkeys.** Toggles for digits and arrows, and the modifier choice.
-- **Apps.** Following the activated app (⌘Tab, Dock).
-- **Indicator.** On/off and the position on screen.
-- **Displays.** Brightness keys for the display under the cursor, hiding the menu bar over full-screen video, and keeping an auto-hiding Dock shown while an external display is connected.
-- **Mouse.** Smooth scrolling for mouse wheels and its smoothness.
+- **General.** Whether Accessibility is granted and the system swipe between desktops is on, with a button to fix either, Launch at Login (uses `SMAppService`), and the version.
+- **Spaces.** Everything about switching: the master switch, the trackpad swipe (direction, longer swipe skips more Spaces), the hotkeys and their modifier, following the activated app (⌘Tab, Dock), and the Space indicator.
+- **Displays.** Brightness keys for the display under the pointer, hiding the menu bar over full-screen video, and keeping an auto-hiding Dock shown while an external display is connected.
+- **Mouse.** Smooth scrolling for mouse wheels, its smoothness, and an optional trackpad-like bounce at the edges.
 
 Settings are stored in the `com.pavlohuk.Quicker` defaults domain.
 
