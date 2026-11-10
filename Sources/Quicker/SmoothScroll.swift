@@ -23,9 +23,11 @@ enum ScrollSmoothness: String, CaseIterable {
 ///
 /// Wheel events are swallowed and their distance added to a target. On every display frame the
 /// page moves a share of what is left, so it glides to a stop instead of jumping a notch at a
-/// time. The output carries trackpad phases: a touch of one frame, then momentum for the rest,
-/// so apps bounce briefly at the edges. A longer touch made browsers keep stretching the page
-/// past its edge for as long as the wheel turned.
+/// time. By default the output is plain continuous (pixel) scrolling without phases, which every
+/// app handles. With `scrollBounce` on it carries trackpad phases instead: a touch of one frame,
+/// then momentum for the rest, so apps bounce briefly at the edges; some apps ignore momentum
+/// and then do not scroll at all. A longer touch made browsers keep stretching the page past
+/// its edge for as long as the wheel turned.
 ///
 /// A wheel's own inertia (the free-spinning wheel of an MX Master) arrives as a steady stream of
 /// ticks, which keeps moving the target; once the wheel stops, the scroll eases out. No extra
@@ -48,7 +50,12 @@ final class SmoothScroller {
     /// Direction of the current glide on each axis (-1, 0, 1).
     private var direction = (y: 0.0, x: 0.0)
     private var lastFrame: CFTimeInterval = 0
-    private var flags: CGEventFlags = []
+    /// The latest wheel event: each frame is a copy of it with new distances, so it keeps what
+    /// the system filled in (location, window, target app). Some apps, such as WhatsApp, scroll
+    /// an inactive window only with those.
+    private var template: CGEvent?
+    /// The app the wheel event was meant for; frames go straight to it.
+    private var targetPID: pid_t = 0
     private var optionsAgent: [pid_t: Bool] = [:]
 
     // MARK: Event tap
@@ -60,7 +67,7 @@ final class SmoothScroller {
             let scroller = Unmanaged<SmoothScroller>.fromOpaque(info!).takeUnretainedValue()
             return scroller.handle(type, event) ? nil : Unmanaged.passUnretained(event)
         }
-        guard let tap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap, options: .defaultTap,
+        guard let tap = CGEvent.tapCreate(tap: .cgAnnotatedSessionEventTap, place: .headInsertEventTap, options: .defaultTap,
                                           eventsOfInterest: mask, callback: callback,
                                           userInfo: Unmanaged.passUnretained(self).toOpaque()) else {
             log.error("smooth scroll: could not create the event tap")
@@ -108,7 +115,7 @@ final class SmoothScroller {
             dx = Double(event.getIntegerValueField(.scrollWheelEventDeltaAxis2)) * 10
         }
         guard dy != 0 || dx != 0 else { return false }
-        add(dy: dy, dx: dx, flags: event.flags)
+        add(dy: dy, dx: dx, from: event)
         return true
     }
 
@@ -124,12 +131,19 @@ final class SmoothScroller {
 
     // MARK: Glide
 
-    private func add(dy: Double, dx: Double, flags: CGEventFlags) {
+    private func add(dy: Double, dx: Double, from event: CGEvent) {
         let reversed = dy * direction.y < 0 || dx * direction.x < 0
         // Turning the wheel back drops what is left in the old direction.
         if dy != 0 { remaining.y = remaining.y * dy < 0 ? dy : remaining.y + dy; direction.y = dy < 0 ? -1 : 1 }
         if dx != 0 { remaining.x = remaining.x * dx < 0 ? dx : remaining.x + dx; direction.x = dx < 0 ? -1 : 1 }
-        self.flags = flags
+        template = event.copy()
+        // Only a running app is a target; otherwise the frames go the usual way.
+        let pid = pid_t(event.getIntegerValueField(.eventTargetUnixProcessID))
+        if pid != targetPID {
+            let app = pid > 0 ? NSRunningApplication(processIdentifier: pid) : nil
+            targetPID = app != nil && pid != ProcessInfo.processInfo.processIdentifier ? pid : 0
+            log.info("smooth scroll target: \(app?.localizedName ?? "none", privacy: .public) (pid \(pid))")
+        }
         switch phase {
         case .idle:
             phase = .touching
@@ -200,19 +214,32 @@ final class SmoothScroller {
         }
         phase = .idle
         direction = (0, 0)
+        template = nil
         remaining = (0, 0)
         carry = (0, 0)
         stopLink()
     }
 
     private func post(y: Int32, x: Int32, scrollPhase: Int64, momentumPhase: Int64) {
-        guard let event = CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2, wheel1: y, wheel2: x, wheel3: 0)
-        else { return }
-        event.flags = flags
-        event.setIntegerValueField(.scrollWheelEventScrollPhase, value: scrollPhase)
-        event.setIntegerValueField(.scrollWheelEventMomentumPhase, value: momentumPhase)
+        let bounce = Settings.shared.scrollBounce
+        // Without phases a marker-only frame carries nothing.
+        if !bounce && y == 0 && x == 0 { return }
+        guard let event = template?.copy() else { return }
+        event.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
+        event.setIntegerValueField(.scrollWheelEventDeltaAxis1, value: Int64(y / 10))
+        event.setIntegerValueField(.scrollWheelEventDeltaAxis2, value: Int64(x / 10))
+        event.setDoubleValueField(.scrollWheelEventPointDeltaAxis1, value: Double(y))
+        event.setDoubleValueField(.scrollWheelEventPointDeltaAxis2, value: Double(x))
+        event.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1, value: Double(y))
+        event.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2, value: Double(x))
+        event.setIntegerValueField(.scrollWheelEventScrollPhase, value: bounce ? scrollPhase : 0)
+        event.setIntegerValueField(.scrollWheelEventMomentumPhase, value: bounce ? momentumPhase : 0)
         event.setIntegerValueField(.eventSourceUserData, value: Self.marker)
-        event.post(tap: .cgSessionEventTap)
+        if targetPID > 0 {
+            event.postToPid(targetPID)
+        } else {
+            event.post(tap: .cgSessionEventTap)
+        }
     }
 
     // MARK: Display link

@@ -55,6 +55,7 @@ final class Settings {
         static let dockShownOnExternalDisplay = "dockShownOnExternalDisplay"
         static let smoothScroll = "smoothScroll"
         static let scrollSmoothness = "scrollSmoothness"
+        static let scrollBounce = "scrollBounce"
     }
 
     private let defaults = UserDefaults.standard
@@ -75,6 +76,7 @@ final class Settings {
             Key.dockShownOnExternalDisplay: true,
             Key.smoothScroll: true,
             Key.scrollSmoothness: ScrollSmoothness.medium.rawValue,
+            Key.scrollBounce: false,
         ])
     }
 
@@ -151,6 +153,13 @@ final class Settings {
     var scrollSmoothness: ScrollSmoothness {
         get { ScrollSmoothness(rawValue: defaults.string(forKey: Key.scrollSmoothness) ?? "") ?? .medium }
         set { defaults.set(newValue.rawValue, forKey: Key.scrollSmoothness) }
+    }
+
+    /// Smoothed scrolling carries trackpad phases, so apps bounce at the edges. Some apps ignore
+    /// such momentum and then do not scroll at all.
+    var scrollBounce: Bool {
+        get { defaults.bool(forKey: Key.scrollBounce) }
+        set { defaults.set(newValue, forKey: Key.scrollBounce) }
     }
 
     /// Keep an auto-hiding Dock shown while an external display is connected.

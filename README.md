@@ -33,7 +33,7 @@ To build without installing, run `Scripts/build-app.sh`. The app is written to `
 1. **Keep the system swipe on.** Open System Settings → Trackpad → More Gestures. Set "Swipe between full-screen applications" to three or four fingers. Quicker intercepts exactly this gesture, so it must stay enabled.
 2. **Grant Accessibility.** macOS asks on first launch. You can also go to System Settings → Privacy & Security → Accessibility and turn on Quicker. The app notices the permission within a couple of seconds, so no restart is needed.
 3. **Optional: turn off the animated app switch.** Go to System Settings → Desktop & Dock → Mission Control. Turn off "When switching to an application, switch to a Space with open windows for the application". This is required for the instant ⌘Tab behaviour described below.
-4. **Optional: start at login.** Enable "Launch at Login" in the app's menu. The app must be in `/Applications` for this to work.
+4. **Optional: start at login.** Enable "Launch at Login" in the app's settings. The app must be in `/Applications` for this to work.
 
 Now swipe with three fingers. Spaces switch instantly, and an overlay shows where you are.
 
@@ -60,7 +60,7 @@ The synthetic swipe technique comes from [InstantSpaceSwitcher](https://github.c
 
 ### Longer swipes
 
-The first Space switches as soon as the fingers start moving. If they keep going in the same direction, every further stretch moves one more Space. The swipe's progress is measured in screen widths: a normal one-Space swipe stays under 0.4, a full stroke across a MacBook trackpad reaches about 0.8. The second Space comes at 0.45, then one more every 0.15, so an unhurried half-trackpad swipe moves three Spaces. Past the second Space, faster fingers make the same travel count for more: up to 1.5 screen widths per second it counts once, from 3 per second three times, so a quick flick across the trackpad races through about ten Spaces. A quick short swipe still moves one. Moving back does not undo the switches already made. It can be turned off in the menu.
+The first Space switches as soon as the fingers start moving. If they keep going in the same direction, every further stretch moves one more Space. The swipe's progress is measured in screen widths: a normal one-Space swipe stays under 0.4, a full stroke across a MacBook trackpad reaches about 0.8. The second Space comes at 0.45, then one more every 0.15, so an unhurried half-trackpad swipe moves three Spaces. Past the second Space, faster fingers make the same travel count for more: up to 1.5 screen widths per second it counts once, from 3 per second three times, so a quick flick across the trackpad races through about ten Spaces. A quick short swipe still moves one. Moving back does not undo the switches already made. It can be turned off in the settings.
 
 ### Hotkeys
 
@@ -69,7 +69,7 @@ The first Space switches as soon as the fingers start moving. If they keep going
 
 A jump across several Spaces is a burst of instant swipes, so it has no animation either. Holding an arrow key does not repeat the switch.
 
-These shortcuts are captured globally, so apps no longer receive them. The exception is the ⌘Tab switcher: while it is open, ⌘←/→ moves its selection as usual. ⌘1…9 stops switching browser tabs and Finder views, and ⌘←/→ stops moving the cursor to the start or end of a line. To avoid this, pick another modifier in the menu: ⌘, ⌃, ⌥ or ⌃⌥. Digits and arrows can also be turned off separately.
+These shortcuts are captured globally, so apps no longer receive them. The exception is the ⌘Tab switcher: while it is open, ⌘←/→ moves its selection as usual. ⌘1…9 stops switching browser tabs and Finder views, and ⌘←/→ stops moving the cursor to the start or end of a line. To avoid this, pick another modifier in the settings: ⌘, ⌃, ⌥ or ⌃⌥. Digits and arrows can also be turned off separately.
 
 ### Following the activated app (⌘Tab, Dock)
 
@@ -98,7 +98,7 @@ After every Space change, an overlay appears for about a second at the top centr
 - It reacts to every kind of switch, including swipes, hotkeys, Mission Control, Dock clicks and the system Ctrl+←/→.
 - It appears once the Dock has landed on the final Space, so a multi-Space jump never shows the Spaces in between.
 - It never takes focus or intercepts clicks, and it is visible over full-screen apps.
-- Its position can be the top centre or any corner, and it can be turned off in the menu.
+- Its position can be the top centre or any corner, and it can be turned off in the settings.
 
 ### Menu bar over full-screen video
 
@@ -109,17 +109,23 @@ With "Automatically hide and show the menu bar" set to **Never**, the menu bar s
 - If the option is already set to hide the menu bar in full screen, Quicker leaves it alone.
 - A video playing inside a normal full-screen window, not in the player's own full screen, hides the menu bar as well.
 
-## Menu
+## Menu and settings
 
-- **Status.** Shows whether Accessibility is granted and which finger count the system swipe uses.
+The menu bar icon opens a short menu:
+
+- **Status.** Shows whether Accessibility is granted and which finger count the system swipe uses, plus a warning when the system's animated switch to an app's Space is on.
 - **Enabled.** The master switch. When it is off, swipes reach the system unchanged with the normal animation, and the hotkeys and app following do nothing.
-- **Invert Swipe Direction.** Affects the trackpad only.
-- **Longer Swipe Skips More Spaces.** Turns the multi-Space swipe on or off.
+- **Quick toggles.** Smooth scrolling, the Space indicator, and keeping the Dock shown with an external display.
+- **Settings…** (⌘,) opens the settings window. Opening Quicker again from Finder or Spotlight does the same.
+
+The settings window has six tabs:
+
+- **General.** Enabled, Invert Swipe Direction (trackpad only), Longer Swipe Skips More Spaces, and Launch at Login (uses `SMAppService`).
 - **Hotkeys.** Toggles for digits and arrows, and the modifier choice.
-- **Go to App (⌘Tab, Dock).** Toggles following the activated app.
-- **Space Indicator.** On/off and the position on screen.
-- **Full-Screen Video.** Hiding the menu bar over full-screen video.
-- **Launch at Login.** Uses `SMAppService`.
+- **Apps.** Following the activated app (⌘Tab, Dock).
+- **Indicator.** On/off and the position on screen.
+- **Displays.** Brightness keys for the display under the cursor, hiding the menu bar over full-screen video, and keeping an auto-hiding Dock shown while an external display is connected.
+- **Mouse.** Smooth scrolling for mouse wheels and its smoothness.
 
 Settings are stored in the `com.pavlohuk.Quicker` defaults domain.
 

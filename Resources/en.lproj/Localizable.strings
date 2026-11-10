@@ -12,22 +12,17 @@
 "menu.enabled" = "Enabled";
 "menu.invertSwipe" = "Invert Swipe Direction";
 "menu.longSwipe" = "Longer Swipe Skips More Spaces";
-"menu.hotkeys" = "Hotkeys";
 "menu.hotkeys.digits" = "%1$@1 … %1$@9 — go to desktop N";
 "menu.hotkeys.arrows" = "%1$@← / %1$@→ — neighboring Space";
-"menu.hotkeys.modifier" = "Modifier: %@";
 "menu.followApp" = "Go to App (⌘Tab, Dock)";
 "menu.followApp.toggle" = "Jump Instantly to Its Desktop";
 "menu.followApp.systemOn" = "⚠️ The system’s animated switch is on";
 "menu.followApp.hint1" = "Turn off “When switching to an application, switch";
 "menu.followApp.hint2" = "to a Space with open windows for the application”";
 "menu.followApp.openSettings" = "Open Desktop & Dock Settings…";
-"menu.indicator" = "Space Indicator";
 "menu.indicator.show" = "Show When Switching";
-"menu.indicator.position" = "Position: %@";
 "menu.scroll" = "Mouse Wheel";
 "menu.scroll.smooth" = "Smooth Scrolling";
-"menu.scroll.smoothness" = "Smoothness: %@";
 "menu.scroll.smoothness.low" = "Low";
 "menu.scroll.smoothness.medium" = "Medium";
 "menu.scroll.smoothness.high" = "High";
@@ -38,6 +33,21 @@
 "menu.dock" = "Dock";
 "menu.dock.external" = "Always Show With an External Display";
 "menu.launchAtLogin" = "Launch at Login";
+"menu.settings" = "Settings…";
+"menu.indicator.quick" = "Show Space Indicator";
+"menu.dock.quick" = "Keep Dock Shown With an External Display";
+"settings.tab.general" = "General";
+"settings.tab.hotkeys" = "Hotkeys";
+"settings.tab.apps" = "Apps";
+"settings.tab.indicator" = "Indicator";
+"settings.tab.brightness" = "Brightness";
+"settings.tab.video" = "Full-Screen Video";
+"settings.tab.mouse" = "Mouse";
+"settings.modifier" = "Modifier";
+"settings.position" = "Position";
+"settings.smoothness" = "Smoothness";
+"settings.scrollBounce" = "Bounce at Edges Like a Trackpad";
+"settings.scrollBounce.hint" = "Sends scrolling as trackpad gestures. Some apps ignore them and stop scrolling.";
 "menu.quit" = "Quit";
 
 /* Indicator positions */

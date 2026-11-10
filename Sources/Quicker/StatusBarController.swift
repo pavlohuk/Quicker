@@ -84,78 +84,18 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
 
         menu.addItem(check(L("menu.enabled"), on: settings.enabled, #selector(toggleEnabled)))
-        menu.addItem(check(L("menu.invertSwipe"), on: settings.invertDirection, #selector(toggleInvert)))
-        menu.addItem(check(L("menu.longSwipe"), on: settings.longSwipeSkipsMore, #selector(toggleLongSwipe)))
-        menu.addItem(.separator())
-
-        let m = settings.hotkeyModifier.symbol
-        menu.addItem(header(L("menu.hotkeys")))
-        menu.addItem(check(L("menu.hotkeys.digits", m), on: settings.hotkeyDigits, #selector(toggleDigits), indent: 1))
-        menu.addItem(check(L("menu.hotkeys.arrows", m), on: settings.hotkeyArrows, #selector(toggleArrows), indent: 1))
-        let modifierItem = NSMenuItem(title: L("menu.hotkeys.modifier", settings.hotkeyModifier.title), action: nil, keyEquivalent: "")
-        modifierItem.indentationLevel = 1
-        let modifierMenu = NSMenu()
-        for modifier in HotkeyModifier.allCases {
-            let mi = check(modifier.title, on: modifier == settings.hotkeyModifier, #selector(setModifier(_:)))
-            mi.representedObject = modifier.rawValue
-            modifierMenu.addItem(mi)
-        }
-        modifierItem.submenu = modifierMenu
-        menu.addItem(modifierItem)
-        menu.addItem(.separator())
-
-        menu.addItem(header(L("menu.followApp")))
-        menu.addItem(check(L("menu.followApp.toggle"), on: settings.followActivatedApp, #selector(toggleFollowApp), indent: 1))
         if settings.followActivatedApp && SystemGestureCheck.systemSwitchOnActivateEnabled() {
             menu.addItem(header(L("menu.followApp.systemOn")))
-            menu.addItem(header(L("menu.followApp.hint1")))
-            menu.addItem(header(L("menu.followApp.hint2")))
             menu.addItem(action(L("menu.followApp.openSettings"), #selector(openDesktopSettings), indent: 1))
         }
         menu.addItem(.separator())
 
-        menu.addItem(header(L("menu.indicator")))
-        menu.addItem(check(L("menu.indicator.show"), on: settings.indicatorEnabled, #selector(toggleIndicator), indent: 1))
-        let cornerItem = NSMenuItem(title: L("menu.indicator.position", settings.indicatorCorner.title), action: nil, keyEquivalent: "")
-        cornerItem.indentationLevel = 1
-        let cornerMenu = NSMenu()
-        for corner in IndicatorCorner.allCases {
-            let mi = check(corner.title, on: corner == settings.indicatorCorner, #selector(setCorner(_:)))
-            mi.representedObject = corner.rawValue
-            cornerMenu.addItem(mi)
-        }
-        cornerItem.submenu = cornerMenu
-        menu.addItem(cornerItem)
+        menu.addItem(check(L("menu.scroll.smooth"), on: settings.smoothScroll, #selector(toggleSmoothScroll)))
+        menu.addItem(check(L("menu.indicator.quick"), on: settings.indicatorEnabled, #selector(toggleIndicator)))
+        menu.addItem(check(L("menu.dock.quick"), on: settings.dockShownOnExternalDisplay, #selector(toggleDockExternal)))
         menu.addItem(.separator())
 
-        menu.addItem(header(L("menu.scroll")))
-        menu.addItem(check(L("menu.scroll.smooth"), on: settings.smoothScroll, #selector(toggleSmoothScroll), indent: 1))
-        let smoothnessItem = NSMenuItem(title: L("menu.scroll.smoothness", settings.scrollSmoothness.title), action: nil, keyEquivalent: "")
-        smoothnessItem.indentationLevel = 1
-        let smoothnessMenu = NSMenu()
-        for level in ScrollSmoothness.allCases {
-            let mi = check(level.title, on: level == settings.scrollSmoothness, #selector(setSmoothness(_:)))
-            mi.representedObject = level.rawValue
-            smoothnessMenu.addItem(mi)
-        }
-        smoothnessItem.submenu = smoothnessMenu
-        menu.addItem(smoothnessItem)
-        menu.addItem(.separator())
-
-        menu.addItem(header(L("menu.brightness")))
-        menu.addItem(check(L("menu.brightness.keys"), on: settings.brightnessKeys, #selector(toggleBrightnessKeys), indent: 1))
-        menu.addItem(.separator())
-
-        menu.addItem(header(L("menu.video")))
-        menu.addItem(check(L("menu.video.hideMenuBar"), on: settings.hideMenuBarForVideo, #selector(toggleVideoMenuBar), indent: 1))
-        menu.addItem(.separator())
-
-        menu.addItem(header(L("menu.dock")))
-        menu.addItem(check(L("menu.dock.external"), on: settings.dockShownOnExternalDisplay, #selector(toggleDockExternal), indent: 1))
-        menu.addItem(.separator())
-
-        menu.addItem(check(L("menu.launchAtLogin"), on: LoginItem.isEnabled, #selector(toggleLoginItem)))
-        menu.addItem(.separator())
+        menu.addItem(action(L("menu.settings"), #selector(openSettings), key: ","))
         menu.addItem(action(L("menu.quit"), #selector(quit), key: "q"))
     }
 
@@ -183,63 +123,36 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     private func changed() {
         onSettingsChanged?()
         updateIcon()
+        settingsWindow.refresh()
     }
+
+    private lazy var settingsWindow: SettingsWindowController = {
+        let controller = SettingsWindowController()
+        controller.onChange = { [weak self] in
+            self?.onSettingsChanged?()
+            self?.updateIcon()
+        }
+        return controller
+    }()
+
+    @objc func openSettings() { settingsWindow.show() }
 
     // MARK: Actions
 
     @objc private func toggleEnabled() { settings.enabled.toggle(); changed() }
-    @objc private func toggleInvert() { settings.invertDirection.toggle(); changed() }
-    @objc private func toggleLongSwipe() { settings.longSwipeSkipsMore.toggle(); changed() }
-    @objc private func toggleDigits() { settings.hotkeyDigits.toggle(); changed() }
-    @objc private func toggleArrows() { settings.hotkeyArrows.toggle(); changed() }
 
     @objc private func toggleIndicator() { settings.indicatorEnabled.toggle(); changed() }
-    @objc private func toggleFollowApp() { settings.followActivatedApp.toggle(); changed() }
-    @objc private func toggleBrightnessKeys() { settings.brightnessKeys.toggle(); changed() }
-    @objc private func toggleVideoMenuBar() { settings.hideMenuBarForVideo.toggle(); changed() }
     @objc private func toggleDockExternal() { settings.dockShownOnExternalDisplay.toggle(); changed() }
     @objc private func openDesktopSettings() { SystemGestureCheck.openDesktopAndDockSettings() }
 
     @objc private func toggleSmoothScroll() { settings.smoothScroll.toggle(); changed() }
 
-    @objc private func setSmoothness(_ sender: NSMenuItem) {
-        if let raw = sender.representedObject as? String, let level = ScrollSmoothness(rawValue: raw) {
-            settings.scrollSmoothness = level
-            changed()
-        }
-    }
-
-    @objc private func setCorner(_ sender: NSMenuItem) {
-        if let raw = sender.representedObject as? String, let corner = IndicatorCorner(rawValue: raw) {
-            settings.indicatorCorner = corner
-            changed()
-        }
-    }
-
-    @objc private func setModifier(_ sender: NSMenuItem) {
-        if let raw = sender.representedObject as? String, let modifier = HotkeyModifier(rawValue: raw) {
-            settings.hotkeyModifier = modifier
-            changed()
-        }
-    }
     @objc private func openTrackpadSettings() { SystemGestureCheck.openTrackpadSettings() }
     @objc private func openAccessibility() {
         // Re-asking puts Quicker back into the Accessibility list if its entry was removed.
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         _ = AXIsProcessTrustedWithOptions(options)
         SystemGestureCheck.openAccessibilitySettings()
-    }
-
-    @objc private func toggleLoginItem() {
-        do {
-            try LoginItem.set(!LoginItem.isEnabled)
-        } catch {
-            log.error("login item change failed: \(error.localizedDescription, privacy: .public)")
-            let alert = NSAlert()
-            alert.messageText = L("alert.loginItem.title")
-            alert.informativeText = L("alert.loginItem.message", error.localizedDescription)
-            alert.runModal()
-        }
     }
 
     @objc private func quit() { NSApp.terminate(nil) }

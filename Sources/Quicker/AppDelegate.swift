@@ -98,6 +98,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         dockAutoHide.update()
     }
 
+    /// Opening Quicker again (from Finder, Spotlight or the Dock) shows its settings.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        statusBar?.openSettings()
+        return false
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         videoMenuBar.restore()
     }

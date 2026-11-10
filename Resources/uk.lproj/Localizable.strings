@@ -12,22 +12,17 @@
 "menu.enabled" = "Увімкнено";
 "menu.invertSwipe" = "Інвертувати напрямок свайпу";
 "menu.longSwipe" = "Довший свайп — більше столів";
-"menu.hotkeys" = "Гарячі клавіші";
 "menu.hotkeys.digits" = "%1$@1 … %1$@9 — перейти на стіл N";
 "menu.hotkeys.arrows" = "%1$@← / %1$@→ — сусідній стіл";
-"menu.hotkeys.modifier" = "Модифікатор: %@";
 "menu.followApp" = "Перехід до програми (⌘Tab, Dock)";
 "menu.followApp.toggle" = "Миттєво на стіл з її вікном";
 "menu.followApp.systemOn" = "⚠️ Діє системний перехід з анімацією";
 "menu.followApp.hint1" = "Вимкніть «При перемиканні на програму переходити";
 "menu.followApp.hint2" = "на простір з її відкритими вікнами»";
 "menu.followApp.openSettings" = "Відкрити «Робочий стіл і Dock»…";
-"menu.indicator" = "Індикатор столу";
 "menu.indicator.show" = "Показувати при перемиканні";
-"menu.indicator.position" = "Положення: %@";
 "menu.scroll" = "Колесо миші";
 "menu.scroll.smooth" = "Плавна прокрутка";
-"menu.scroll.smoothness" = "Плавність: %@";
 "menu.scroll.smoothness.low" = "Низька";
 "menu.scroll.smoothness.medium" = "Середня";
 "menu.scroll.smoothness.high" = "Висока";
@@ -38,6 +33,21 @@
 "menu.dock" = "Dock";
 "menu.dock.external" = "Не ховати із зовнішнім дисплеєм";
 "menu.launchAtLogin" = "Запускати при вході";
+"menu.settings" = "Налаштування…";
+"menu.indicator.quick" = "Показувати плашку столу";
+"menu.dock.quick" = "Не ховати Dock із зовнішнім дисплеєм";
+"settings.tab.general" = "Загальне";
+"settings.tab.hotkeys" = "Клавіші";
+"settings.tab.apps" = "Застосунки";
+"settings.tab.indicator" = "Плашка";
+"settings.tab.brightness" = "Яскравість";
+"settings.tab.video" = "Відео на весь екран";
+"settings.tab.mouse" = "Миша";
+"settings.modifier" = "Модифікатор";
+"settings.position" = "Положення";
+"settings.smoothness" = "Плавність";
+"settings.scrollBounce" = "Пружний відскок на краях, як у трекпада";
+"settings.scrollBounce.hint" = "Надсилає прокрутку як жести трекпада. Деякі застосунки їх ігнорують і перестають прокручуватися.";
 "menu.quit" = "Вийти";
 
 /* Indicator positions */
