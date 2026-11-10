@@ -128,6 +128,20 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         menu.addItem(cornerItem)
         menu.addItem(.separator())
 
+        menu.addItem(header(L("menu.scroll")))
+        menu.addItem(check(L("menu.scroll.smooth"), on: settings.smoothScroll, #selector(toggleSmoothScroll), indent: 1))
+        let smoothnessItem = NSMenuItem(title: L("menu.scroll.smoothness", settings.scrollSmoothness.title), action: nil, keyEquivalent: "")
+        smoothnessItem.indentationLevel = 1
+        let smoothnessMenu = NSMenu()
+        for level in ScrollSmoothness.allCases {
+            let mi = check(level.title, on: level == settings.scrollSmoothness, #selector(setSmoothness(_:)))
+            mi.representedObject = level.rawValue
+            smoothnessMenu.addItem(mi)
+        }
+        smoothnessItem.submenu = smoothnessMenu
+        menu.addItem(smoothnessItem)
+        menu.addItem(.separator())
+
         menu.addItem(header(L("menu.brightness")))
         menu.addItem(check(L("menu.brightness.keys"), on: settings.brightnessKeys, #selector(toggleBrightnessKeys), indent: 1))
         menu.addItem(.separator())
@@ -185,6 +199,15 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     @objc private func toggleVideoMenuBar() { settings.hideMenuBarForVideo.toggle(); changed() }
     @objc private func toggleDockExternal() { settings.dockShownOnExternalDisplay.toggle(); changed() }
     @objc private func openDesktopSettings() { SystemGestureCheck.openDesktopAndDockSettings() }
+
+    @objc private func toggleSmoothScroll() { settings.smoothScroll.toggle(); changed() }
+
+    @objc private func setSmoothness(_ sender: NSMenuItem) {
+        if let raw = sender.representedObject as? String, let level = ScrollSmoothness(rawValue: raw) {
+            settings.scrollSmoothness = level
+            changed()
+        }
+    }
 
     @objc private func setCorner(_ sender: NSMenuItem) {
         if let raw = sender.representedObject as? String, let corner = IndicatorCorner(rawValue: raw) {

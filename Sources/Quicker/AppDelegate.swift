@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let brightness = BrightnessController()
     private let brightnessHUD = BrightnessHUD()
     private let dockAutoHide = DockAutoHide()
+    private let smoothScroller = SmoothScroller()
     /// Brightness keys whose key-down Quicker took, so their key-up is taken too.
     private var takenBrightnessKeys: Set<Int> = []
     /// Target of our own switch, shown once the Dock has actually landed there.
@@ -323,6 +324,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             log.error("could not create the event tap")
         }
+        smoothScroller.install()
         statusBar?.updateIcon()
     }
 

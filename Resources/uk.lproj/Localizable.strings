@@ -25,6 +25,12 @@
 "menu.indicator" = "Індикатор столу";
 "menu.indicator.show" = "Показувати при перемиканні";
 "menu.indicator.position" = "Положення: %@";
+"menu.scroll" = "Колесо миші";
+"menu.scroll.smooth" = "Плавна прокрутка";
+"menu.scroll.smoothness" = "Плавність: %@";
+"menu.scroll.smoothness.low" = "Низька";
+"menu.scroll.smoothness.medium" = "Середня";
+"menu.scroll.smoothness.high" = "Висока";
 "menu.brightness" = "Яскравість дисплеїв";
 "menu.brightness.keys" = "Клавіші яскравості — дисплей під курсором";
 "menu.video" = "Відео на весь екран";

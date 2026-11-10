@@ -25,6 +25,12 @@
 "menu.indicator" = "Space Indicator";
 "menu.indicator.show" = "Show When Switching";
 "menu.indicator.position" = "Position: %@";
+"menu.scroll" = "Mouse Wheel";
+"menu.scroll.smooth" = "Smooth Scrolling";
+"menu.scroll.smoothness" = "Smoothness: %@";
+"menu.scroll.smoothness.low" = "Low";
+"menu.scroll.smoothness.medium" = "Medium";
+"menu.scroll.smoothness.high" = "High";
 "menu.brightness" = "Display Brightness";
 "menu.brightness.keys" = "Brightness Keys Change the Display Under the Cursor";
 "menu.video" = "Full-Screen Video";

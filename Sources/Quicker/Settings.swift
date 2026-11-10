@@ -53,6 +53,8 @@ final class Settings {
         static let longSwipeSkipsMore = "longSwipeSkipsMore"
         static let brightnessKeys = "brightnessKeys"
         static let dockShownOnExternalDisplay = "dockShownOnExternalDisplay"
+        static let smoothScroll = "smoothScroll"
+        static let scrollSmoothness = "scrollSmoothness"
     }
 
     private let defaults = UserDefaults.standard
@@ -71,6 +73,8 @@ final class Settings {
             Key.longSwipeSkipsMore: true,
             Key.brightnessKeys: true,
             Key.dockShownOnExternalDisplay: true,
+            Key.smoothScroll: true,
+            Key.scrollSmoothness: ScrollSmoothness.medium.rawValue,
         ])
     }
 
@@ -136,6 +140,17 @@ final class Settings {
     var brightnessKeys: Bool {
         get { defaults.bool(forKey: Key.brightnessKeys) }
         set { defaults.set(newValue, forKey: Key.brightnessKeys) }
+    }
+
+    /// Smooth, trackpad-like scrolling for mouse wheels.
+    var smoothScroll: Bool {
+        get { defaults.bool(forKey: Key.smoothScroll) }
+        set { defaults.set(newValue, forKey: Key.smoothScroll) }
+    }
+
+    var scrollSmoothness: ScrollSmoothness {
+        get { ScrollSmoothness(rawValue: defaults.string(forKey: Key.scrollSmoothness) ?? "") ?? .medium }
+        set { defaults.set(newValue.rawValue, forKey: Key.scrollSmoothness) }
     }
 
     /// Keep an auto-hiding Dock shown while an external display is connected.
