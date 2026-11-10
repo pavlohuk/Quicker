@@ -24,17 +24,19 @@ final class SettingsWindowController {
     func refresh() { model.refresh() }
 
     private func makeWindow() -> NSWindow {
-        let host = NSHostingController(rootView: SettingsView().environmentObject(model))
-        let window = NSWindow(contentViewController: host)
-        window.styleMask = [.titled, .closable, .miniaturizable, .fullSizeContentView]
-        window.titlebarAppearsTransparent = true
-        window.toolbarStyle = .unified
+        weak var window: NSWindow?
+        let host = NSHostingController(rootView: SettingsView(setTitle: { window?.title = $0 }).environmentObject(model))
+        let created = NSWindow(contentViewController: host)
+        window = created
+        created.styleMask = [.titled, .closable, .miniaturizable, .fullSizeContentView]
+        created.titlebarAppearsTransparent = true
+        created.toolbarStyle = .unified
         // An empty toolbar lets the sidebar reach the top of the window, as in System Settings.
-        window.toolbar = NSToolbar()
-        window.setContentSize(NSSize(width: 720, height: 480))
-        window.isReleasedWhenClosed = false
-        window.center()
-        return window
+        created.toolbar = NSToolbar()
+        created.setContentSize(NSSize(width: 720, height: 480))
+        created.isReleasedWhenClosed = false
+        created.center()
+        return created
     }
 }
 
@@ -58,30 +60,27 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
 
     var symbol: String {
         switch self {
-        case .general: return "gearshape"
-        case .hotkeys: return "keyboard"
-        case .apps: return "macwindow.on.rectangle"
-        case .indicator: return "rectangle.inset.filled"
-        case .brightness: return "sun.max"
-        case .video: return "play.rectangle"
+        case .general: return "gearshape.fill"
+        case .hotkeys: return "keyboard.fill"
+        case .apps: return "square.grid.2x2.fill"
+        case .indicator: return "rectangle.split.3x1.fill"
+        case .brightness: return "sun.max.fill"
+        case .video: return "play.fill"
         case .dock: return "dock.rectangle"
-        case .mouse: return "computermouse"
+        case .mouse: return "computermouse.fill"
         }
     }
 
-    /// Icon tile colour, as in System Settings.
+    /// Icon tile colour, after System Settings: mostly blue and grey, the Dock on black.
     var tint: Color {
         switch self {
-        case .general: return .gray
-        case .hotkeys: return .indigo
-        case .apps: return .blue
-        case .indicator: return .teal
-        case .brightness: return .orange
+        case .general, .hotkeys, .mouse: return Color(white: 0.55)
+        case .apps, .indicator, .brightness: return .blue
         case .video: return .red
-        case .dock: return .purple
-        case .mouse: return .green
+        case .dock: return Color(white: 0.12)
         }
     }
+
 }
 
 /// Settings keep their sidebar; the toolbar button that hides it is removed where possible.
@@ -96,6 +95,8 @@ private struct NoSidebarToggle: ViewModifier {
 }
 
 private struct SettingsView: View {
+    /// Shows the section's name as the window title.
+    let setTitle: (String) -> Void
     @State private var selection: SettingsSection? = .general
 
     var body: some View {
@@ -104,15 +105,15 @@ private struct SettingsView: View {
                 Label {
                     Text(section.title)
                 } icon: {
+                    // A white, filled glyph on a coloured tile, as in System Settings.
                     Image(systemName: section.symbol)
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: 9.5, weight: .regular))
                         .foregroundStyle(.white)
-                        .frame(width: 20, height: 20)
-                        .background(section.tint.gradient, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                        .frame(width: 22, height: 22)
+                        .background(section.tint.gradient, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
                 }
-                .padding(.vertical, 1)
             }
-            .navigationSplitViewColumnWidth(200)
+            .navigationSplitViewColumnWidth(210)
             .modifier(NoSidebarToggle())
         } detail: {
             let section = selection ?? .general
@@ -128,7 +129,8 @@ private struct SettingsView: View {
                 case .mouse: MousePane()
                 }
             }
-            .navigationTitle(section.title)
+            .onAppear { setTitle(section.title) }
+            .onChange(of: section) { setTitle($0.title) }
         }
         .frame(minWidth: 720, minHeight: 480)
     }
