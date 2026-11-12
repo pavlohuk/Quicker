@@ -45,6 +45,7 @@
 "settings.modifier" = "Модифікатор";
 "settings.position" = "Положення";
 "settings.smoothness" = "Плавність";
+"settings.scrollSpeed" = "Швидкість";
 "settings.scrollBounce" = "Пружний відскок на краях, як у трекпада";
 "settings.scrollBounce.hint" = "Надсилає прокрутку як жести трекпада. Деякі застосунки їх ігнорують і перестають прокручуватися.";
 "settings.tab.displays" = "Дисплеї";

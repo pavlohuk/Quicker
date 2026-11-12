@@ -316,6 +316,16 @@ private struct MousePane: View {
                     ForEach(ScrollSmoothness.allCases, id: \.self) { Text($0.title).tag($0) }
                 }
                 .disabled(!smooth)
+                LabeledContent(L("settings.scrollSpeed")) {
+                    HStack(spacing: 8) {
+                        Slider(value: model.binding(\.scrollSpeed), in: 1...3, step: 0.25)
+                        Text(String(format: "%.2g×", model.settings.scrollSpeed))
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                            .frame(width: 40, alignment: .trailing)
+                    }
+                }
+                .disabled(!smooth)
             } header: {
                 Text(L("menu.scroll"))
             } footer: {

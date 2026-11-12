@@ -56,6 +56,7 @@ final class Settings {
         static let smoothScroll = "smoothScroll"
         static let scrollSmoothness = "scrollSmoothness"
         static let scrollBounce = "scrollBounce"
+        static let scrollSpeed = "scrollSpeed"
     }
 
     private let defaults = UserDefaults.standard
@@ -77,6 +78,7 @@ final class Settings {
             Key.smoothScroll: true,
             Key.scrollSmoothness: ScrollSmoothness.medium.rawValue,
             Key.scrollBounce: false,
+            Key.scrollSpeed: 1.5,
         ])
     }
 
@@ -153,6 +155,12 @@ final class Settings {
     var scrollSmoothness: ScrollSmoothness {
         get { ScrollSmoothness(rawValue: defaults.string(forKey: Key.scrollSmoothness) ?? "") ?? .medium }
         set { defaults.set(newValue.rawValue, forKey: Key.scrollSmoothness) }
+    }
+
+    /// How far a smoothed scroll goes, as a multiple of what the wheel reports.
+    var scrollSpeed: Double {
+        get { min(max(defaults.double(forKey: Key.scrollSpeed), 0.5), 4) }
+        set { defaults.set(newValue, forKey: Key.scrollSpeed) }
     }
 
     /// Smoothed scrolling carries trackpad phases, so apps bounce at the edges. Some apps ignore

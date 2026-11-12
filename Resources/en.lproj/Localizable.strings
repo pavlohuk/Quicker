@@ -45,6 +45,7 @@
 "settings.modifier" = "Modifier";
 "settings.position" = "Position";
 "settings.smoothness" = "Smoothness";
+"settings.scrollSpeed" = "Speed";
 "settings.scrollBounce" = "Bounce at Edges Like a Trackpad";
 "settings.scrollBounce.hint" = "Sends scrolling as trackpad gestures. Some apps ignore them and stop scrolling.";
 "settings.tab.displays" = "Displays";

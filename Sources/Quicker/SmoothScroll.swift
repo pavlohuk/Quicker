@@ -122,7 +122,8 @@ final class SmoothScroller {
             dx = Double(event.getIntegerValueField(.scrollWheelEventDeltaAxis2)) * 10
         }
         guard dy != 0 || dx != 0 else { return false }
-        add(dy: dy, dx: dx, from: event)
+        let speed = Settings.shared.scrollSpeed
+        add(dy: dy * speed, dx: dx * speed, from: event)
         return true
     }
 
