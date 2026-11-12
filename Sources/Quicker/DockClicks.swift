@@ -162,8 +162,16 @@ final class DockClickInterceptor {
         // would land in whatever window is under the pointer, so only replay it onto the icon.
         let iconStillThere = appForDockIcon(at: held.location)?.processIdentifier == held.app.processIdentifier
         if iconStillThere {
+            // The replayed click takes the pointer back to the icon; the hand has usually moved
+            // on during the switch, so the pointer is returned to where it really was.
+            let pointer = CGEvent(source: nil)?.location
             post(.leftMouseDown, at: held.location, flags: held.flags)
-            if held.upReceived { post(.leftMouseUp, at: held.location, flags: held.flags) }
+            if held.upReceived {
+                post(.leftMouseUp, at: held.location, flags: held.flags)
+                if let pointer, hypot(pointer.x - held.location.x, pointer.y - held.location.y) > 1 {
+                    post(.mouseMoved, at: pointer, flags: held.flags)
+                }
+            }
         } else {
             log.notice("dock icon gone after the switch; focusing \(held.app.localizedName ?? "the app", privacy: .public) directly")
         }
@@ -173,7 +181,7 @@ final class DockClickInterceptor {
     private func post(_ type: CGEventType, at point: CGPoint, flags: CGEventFlags) {
         guard let event = CGEvent(mouseEventSource: nil, mouseType: type, mouseCursorPosition: point, mouseButton: .left) else { return }
         event.flags = flags
-        event.setIntegerValueField(.mouseEventClickState, value: 1)
+        if type != .mouseMoved { event.setIntegerValueField(.mouseEventClickState, value: 1) }
         event.setIntegerValueField(.eventSourceUserData, value: Int64(IS_REPLAY_MARKER))
         event.post(tap: .cghidEventTap)
     }
