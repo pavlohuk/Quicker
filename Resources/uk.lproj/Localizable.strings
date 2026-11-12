@@ -47,7 +47,10 @@
 "settings.smoothness" = "Плавність";
 "settings.scrollSpeed" = "Швидкість";
 "settings.scrollBounce" = "Пружний відскок на краях, як у трекпада";
-"settings.scrollBounce.hint" = "Надсилає прокрутку як жести трекпада. Деякі застосунки їх ігнорують і перестають прокручуватися.";
+"settings.scrollBounce.hint" = "Надсилає прокрутку як жести трекпада в застосунки зі списку нижче, тому сторінки м'яко пружинять на краях.";
+"settings.scrollBounceApps" = "Застосунки з відскоком";
+"settings.scrollBounceApps.add" = "Додати застосунок…";
+"settings.scrollBounceApps.hint" = "В інших застосунках прокрутка плавна, без відскоку. Приберіть застосунок, якщо він прокручується повільно, ривками або не прокручується зовсім.";
 "settings.tab.displays" = "Дисплеї";
 "settings.status" = "Стан";
 "settings.status.hint" = "Обидва потрібні Quicker, щоб миттєво перемикати столи.";

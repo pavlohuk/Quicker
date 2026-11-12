@@ -47,7 +47,10 @@
 "settings.smoothness" = "Smoothness";
 "settings.scrollSpeed" = "Speed";
 "settings.scrollBounce" = "Bounce at Edges Like a Trackpad";
-"settings.scrollBounce.hint" = "Sends scrolling as trackpad gestures. Some apps ignore them and stop scrolling.";
+"settings.scrollBounce.hint" = "Sends scrolling as trackpad gestures to the apps below, so pages bounce softly at their edges.";
+"settings.scrollBounceApps" = "Apps That Bounce";
+"settings.scrollBounceApps.add" = "Add App…";
+"settings.scrollBounceApps.hint" = "Other apps scroll smoothly without the bounce. Remove an app if it scrolls slowly, unevenly or not at all.";
 "settings.tab.displays" = "Displays";
 "settings.status" = "Status";
 "settings.status.hint" = "Quicker needs both to switch Spaces instantly.";

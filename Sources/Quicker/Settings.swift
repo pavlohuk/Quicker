@@ -57,6 +57,7 @@ final class Settings {
         static let scrollSmoothness = "scrollSmoothness"
         static let scrollBounce = "scrollBounce"
         static let scrollSpeed = "scrollSpeed"
+        static let scrollBounceApps = "scrollBounceApps"
     }
 
     private let defaults = UserDefaults.standard
@@ -79,6 +80,10 @@ final class Settings {
             Key.scrollSmoothness: ScrollSmoothness.medium.rawValue,
             Key.scrollBounce: false,
             Key.scrollSpeed: 1.5,
+            Key.scrollBounceApps: [
+                "com.apple.Safari", "com.google.Chrome", "org.mozilla.firefox", "app.zen-browser.zen",
+                "company.thebrowser.Browser", "com.microsoft.edgemac", "com.brave.Browser",
+            ],
         ])
     }
 
@@ -163,8 +168,16 @@ final class Settings {
         set { defaults.set(newValue, forKey: Key.scrollSpeed) }
     }
 
-    /// Smoothed scrolling carries trackpad phases, so apps bounce at the edges. Some apps ignore
-    /// such momentum and then do not scroll at all.
+    /// Bundle identifiers of the apps that get the bounce when `scrollBounce` is on. It is a
+    /// list of apps known to handle it (browsers): many others scroll slowly, unevenly or not at
+    /// all when sent trackpad momentum.
+    var scrollBounceApps: [String] {
+        get { defaults.stringArray(forKey: Key.scrollBounceApps) ?? [] }
+        set { defaults.set(newValue, forKey: Key.scrollBounceApps) }
+    }
+
+    /// Smoothed scrolling carries trackpad phases in the apps of `scrollBounceApps`, so they
+    /// bounce at the edges.
     var scrollBounce: Bool {
         get { defaults.bool(forKey: Key.scrollBounce) }
         set { defaults.set(newValue, forKey: Key.scrollBounce) }

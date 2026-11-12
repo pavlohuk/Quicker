@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// The settings window: sections in a sidebar on the left, like System Settings.
 final class SettingsWindowController {
@@ -337,6 +338,56 @@ private struct MousePane: View {
             } footer: {
                 Text(L("settings.scrollBounce.hint")).foregroundStyle(.secondary)
             }
+            if model.settings.scrollBounce {
+                Section {
+                    ForEach(model.settings.scrollBounceApps, id: \.self) { bundle in
+                        BounceAppRow(bundle: bundle) {
+                            model.binding(\.scrollBounceApps).wrappedValue.removeAll { $0 == bundle }
+                        }
+                    }
+                    Button(L("settings.scrollBounceApps.add")) { addBounceApp() }
+                } header: {
+                    Text(L("settings.scrollBounceApps"))
+                } footer: {
+                    Text(L("settings.scrollBounceApps.hint")).foregroundStyle(.secondary)
+                }
+                .disabled(!smooth)
+            }
+        }
+    }
+
+    private func addBounceApp() {
+        let panel = NSOpenPanel()
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.allowedContentTypes = [.application]
+        panel.allowsMultipleSelection = true
+        guard panel.runModal() == .OK else { return }
+        var apps = model.settings.scrollBounceApps
+        for url in panel.urls {
+            if let bundle = Bundle(url: url)?.bundleIdentifier, !apps.contains(bundle) { apps.append(bundle) }
+        }
+        model.binding(\.scrollBounceApps).wrappedValue = apps
+    }
+}
+
+/// An app in the list of apps that bounce: its icon and name, and a button to remove it.
+private struct BounceAppRow: View {
+    let bundle: String
+    let remove: () -> Void
+
+    var body: some View {
+        let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundle)
+        HStack(spacing: 8) {
+            if let url {
+                Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
+                    .resizable()
+                    .frame(width: 20, height: 20)
+            }
+            Text(url.map { FileManager.default.displayName(atPath: $0.path) } ?? bundle)
+            Spacer()
+            Button(action: remove) { Image(systemName: "minus.circle.fill") }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
         }
     }
 }
