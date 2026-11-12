@@ -347,6 +347,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func handleKey(keycode: Int32, flags: UInt64, isRepeat: Bool) -> Bool {
         activationGuard.keyDown(keycode: keycode, flags: CGEventFlags(rawValue: flags), isRepeat: isRepeat)
 
+        // Brightness as plain keys: F15 up and F14 down, the macOS shortcuts on keyboards without
+        // brightness keys (Logi Options+ sends these), or the key codes 144 and 145. Alone, or
+        // with ⌥⇧ for fine steps.
+        if [113, 144, 107, 145].contains(keycode) {
+            let held = CGEventFlags(rawValue: flags).intersection([.maskCommand, .maskControl, .maskAlternate, .maskShift])
+            let fine = held == [.maskAlternate, .maskShift]
+            if held.isEmpty || fine {
+                return stepBrightness(direction: keycode == 113 || keycode == 144 ? 1 : -1, fine: fine)
+            }
+        }
+
         let settings = Settings.shared
         guard settings.enabled, Hotkeys.modifiersMatch(flags, settings.hotkeyModifier) else { return false }
         // While the ⌘Tab switcher is open, arrows move its selection.
@@ -387,11 +398,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard key == 2 || key == 3 else { return false }
         guard isDown else { return takenBrightnessKeys.remove(key) != nil }
 
+        let fine = ns.modifierFlags.isSuperset(of: [.option, .shift])
+        guard stepBrightness(direction: key == 2 ? 1 : -1, fine: fine) else { return false }
+        takenBrightnessKeys.insert(key)
+        return true
+    }
+
+    /// One press of a brightness key. Returns false when the display is left to the system.
+    private func stepBrightness(direction: Int, fine: Bool) -> Bool {
         guard Settings.shared.brightnessKeys, let display = brightness.displayUnderMouse(),
               brightness.canControl(display.id) else { return false }
-        takenBrightnessKeys.insert(key)
-        let fine = ns.modifierFlags.isSuperset(of: [.option, .shift])
-        brightness.step(display.id, direction: key == 2 ? 1 : -1, step: fine ? 1.0 / 64 : 1.0 / 16)
+        brightness.step(display.id, direction: direction, step: fine ? 1.0 / 64 : 1.0 / 16)
         brightnessHUD.show(display, value: brightness.value(of: display.id) ?? 0.5, corner: Settings.shared.indicatorCorner)
         return true
     }

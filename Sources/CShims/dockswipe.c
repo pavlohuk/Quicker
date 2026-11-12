@@ -225,7 +225,7 @@ static const CGEventType kEventSystemDefined = (CGEventType)14;
 static ISFlagsHandler g_flags_handler = NULL;
 static CGEventRef g_held_flags[8];      // modifier changes held back by the flags handler, in order
 static unsigned g_held_flags_count = 0;
-static uint8_t g_swallowed_keys[128];  // key-downs we swallowed, so their key-ups are swallowed too
+static uint8_t g_swallowed_keys[256];  // key-downs we swallowed, so their key-ups are swallowed too
 static bool g_tracking = false;
 static bool g_fired = false;
 static int g_direction = 0;   // of the switch the tracked swipe made, +1 or -1
@@ -426,7 +426,7 @@ static CGEventRef tap_callback(CGEventTapProxy proxy, CGEventType type, CGEventR
 
     if (type == kCGEventKeyDown || type == kCGEventKeyUp) {
         int64_t keycode = CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
-        if (keycode < 0 || keycode >= 128) return event;
+        if (keycode < 0 || keycode >= 256) return event;
         if (type == kCGEventKeyUp) {
             if (!g_swallowed_keys[keycode]) return event;
             g_swallowed_keys[keycode] = 0;
