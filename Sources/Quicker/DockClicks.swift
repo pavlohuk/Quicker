@@ -161,27 +161,26 @@ final class DockClickInterceptor {
         // An auto-hidden Dock can be out of the way right after the switch. A click replayed then
         // would land in whatever window is under the pointer, so only replay it onto the icon.
         let iconStillThere = appForDockIcon(at: held.location)?.processIdentifier == held.app.processIdentifier
-        if iconStillThere {
-            // The replayed click takes the pointer back to the icon; the hand has usually moved
-            // on during the switch, so the pointer is returned to where it really was.
-            let pointer = CGEvent(source: nil)?.location
+        // A click replayed at the icon would pull the pointer back there. Once the hand has
+        // moved on, the app is focused directly instead and the pointer is left alone.
+        let pointer = CGEvent(source: nil)?.location ?? held.location
+        let moved = hypot(pointer.x - held.location.x, pointer.y - held.location.y) > dragSlop
+        let replayed = iconStillThere && !moved
+        if replayed {
             post(.leftMouseDown, at: held.location, flags: held.flags)
-            if held.upReceived {
-                post(.leftMouseUp, at: held.location, flags: held.flags)
-                if let pointer, hypot(pointer.x - held.location.x, pointer.y - held.location.y) > 1 {
-                    post(.mouseMoved, at: pointer, flags: held.flags)
-                }
-            }
+            if held.upReceived { post(.leftMouseUp, at: held.location, flags: held.flags) }
+        } else if moved {
+            log.info("pointer left the dock icon during the switch; focusing \(held.app.localizedName ?? "the app", privacy: .public) directly")
         } else {
             log.notice("dock icon gone after the switch; focusing \(held.app.localizedName ?? "the app", privacy: .public) directly")
         }
-        onClickHandled?(held.app, held.target, iconStillThere)
+        onClickHandled?(held.app, held.target, replayed)
     }
 
     private func post(_ type: CGEventType, at point: CGPoint, flags: CGEventFlags) {
         guard let event = CGEvent(mouseEventSource: nil, mouseType: type, mouseCursorPosition: point, mouseButton: .left) else { return }
         event.flags = flags
-        if type != .mouseMoved { event.setIntegerValueField(.mouseEventClickState, value: 1) }
+        event.setIntegerValueField(.mouseEventClickState, value: 1)
         event.setIntegerValueField(.eventSourceUserData, value: Int64(IS_REPLAY_MARKER))
         event.post(tap: .cghidEventTap)
     }
