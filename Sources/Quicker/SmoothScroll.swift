@@ -226,12 +226,9 @@ final class SmoothScroller {
         if !bounce && y == 0 && x == 0 { return }
         guard let event = template?.copy() else { return }
         event.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
-        event.setIntegerValueField(.scrollWheelEventDeltaAxis1, value: Int64(y / 10))
-        event.setIntegerValueField(.scrollWheelEventDeltaAxis2, value: Int64(x / 10))
+        // Only the pixel distance changes; the wheel's own line counts stay, as apps expect them.
         event.setDoubleValueField(.scrollWheelEventPointDeltaAxis1, value: Double(y))
         event.setDoubleValueField(.scrollWheelEventPointDeltaAxis2, value: Double(x))
-        event.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1, value: Double(y))
-        event.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2, value: Double(x))
         event.setIntegerValueField(.scrollWheelEventScrollPhase, value: bounce ? scrollPhase : 0)
         event.setIntegerValueField(.scrollWheelEventMomentumPhase, value: bounce ? momentumPhase : 0)
         event.setIntegerValueField(.eventSourceUserData, value: Self.marker)
