@@ -24,10 +24,11 @@ enum ScrollSmoothness: String, CaseIterable {
 /// Wheel events are swallowed and their distance added to a target. On every display frame the
 /// page moves a share of what is left, so it glides to a stop instead of jumping a notch at a
 /// time. By default the output is plain continuous (pixel) scrolling without phases, which every
-/// app handles. With `scrollBounce` on it carries trackpad phases instead: a touch of one frame,
-/// then momentum for the rest, so apps bounce briefly at the edges; some apps ignore momentum
-/// and then do not scroll at all. A longer touch made browsers keep stretching the page past
-/// its edge for as long as the wheel turned.
+/// app handles. With `scrollBounce` on it carries trackpad phases instead, so apps bounce at
+/// the edges: a touch while the wheel turns, then momentum for what is left. The touch has to
+/// last: after a touch of a single frame apps take the gesture for empty and ignore its
+/// momentum, so nothing scrolls. It is also capped, because browsers keep stretching the page
+/// past its edge for as long as a touch goes on, and a free-spinning wheel turns for seconds.
 ///
 /// A wheel's own inertia (the free-spinning wheel of an MX Master) arrives as a steady stream of
 /// ticks, which keeps moving the target; once the wheel stops, the scroll eases out. No extra
@@ -50,6 +51,12 @@ final class SmoothScroller {
     /// Direction of the current glide on each axis (-1, 0, 1).
     private var direction = (y: 0.0, x: 0.0)
     private var lastFrame: CFTimeInterval = 0
+    private var lastInput: CFTimeInterval = 0
+    private var touchStart: CFTimeInterval = 0
+    /// A touch ends once the wheel has been still this long...
+    private static let touchPause: CFTimeInterval = 0.18
+    /// ...or has lasted this long; the wheel then feeds the momentum.
+    private static let touchLimit: CFTimeInterval = 0.35
     /// The latest wheel event: each frame is a copy of it with new distances, so it keeps what
     /// the system filled in (location, window, target app). Some apps, such as WhatsApp, scroll
     /// an inactive window only with those.
@@ -144,17 +151,22 @@ final class SmoothScroller {
             targetPID = app != nil && pid != ProcessInfo.processInfo.processIdentifier ? pid : 0
             log.info("smooth scroll target: \(app?.localizedName ?? "none", privacy: .public) (pid \(pid))")
         }
+        let now = CACurrentMediaTime()
+        let separate = now - lastInput > Self.touchPause
+        lastInput = now
         switch phase {
         case .idle:
             phase = .touching
             sentFirst = false
-            lastFrame = CACurrentMediaTime()
+            lastFrame = now
+            touchStart = now
             startLink()
-        case .gliding where reversed:
-            // A new touch, as a trackpad reports it; same-direction ticks just feed the glide.
+        case .gliding where reversed || separate:
+            // A new touch, as a trackpad reports it; a steady stream of ticks feeds the glide.
             if sentFirst { post(y: 0, x: 0, scrollPhase: 0, momentumPhase: 3) }
             phase = .touching
             sentFirst = false
+            touchStart = now
         case .gliding, .touching:
             break
         }
@@ -166,8 +178,9 @@ final class SmoothScroller {
         let dt = min(max(now - lastFrame, 0), 0.05)
         lastFrame = now
 
-        // The touch lasts one frame; everything after it is momentum.
-        if phase == .touching, sentFirst {
+        // The touch ends when the wheel pauses or at its limit; the rest is momentum.
+        if phase == .touching, sentFirst,
+           now - lastInput > Self.touchPause || now - touchStart > Self.touchLimit {
             post(y: 0, x: 0, scrollPhase: 4, momentumPhase: 0)
             phase = .gliding
             sentFirst = false
