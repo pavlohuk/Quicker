@@ -10,6 +10,7 @@ final class DockAutoHide {
     /// Set while Quicker keeps the Dock shown; survives a restart of Quicker.
     private let restoreKey = "dockAutoHideTurnedOff"
     private var pending: DispatchWorkItem?
+    private var repair: DispatchWorkItem?
 
     private typealias GetFn = @convention(c) () -> Bool
     private typealias SetFn = @convention(c) (Bool) -> Void
@@ -34,10 +35,41 @@ final class DockAutoHide {
             setFn(false)
             defaults.set(true, forKey: restoreKey)
             log.notice("dock: external display connected, auto-hide off")
-        } else if turnedOff {
-            setFn(true)
-            defaults.removeObject(forKey: restoreKey)
-            log.notice("dock: auto-hide back on")
+        } else {
+            if turnedOff {
+                setFn(true)
+                defaults.removeObject(forKey: restoreKey)
+                log.notice("dock: auto-hide back on")
+            }
+            scheduleRepair(after: 1.5, retry: true)
+        }
+    }
+
+    /// An auto-hide turned on while the displays rearrange can leave the Dock hidden but its
+    /// strip of the screen still reserved, so windows cannot be made full height. Turning
+    /// auto-hide on again changes nothing; off and on again frees the strip.
+    private func scheduleRepair(after delay: TimeInterval, retry: Bool) {
+        repair?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, let getFn = self.getFn, let setFn = self.setFn,
+                  getFn(), !Self.externalDisplayConnected(), Self.dockSpaceReserved() else { return }
+            log.notice("dock: hidden but its space is still reserved; turning auto-hide off and on")
+            setFn(false)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                // Unless a display came back meanwhile and the Dock is meant to stay shown.
+                if !(Settings.shared.dockShownOnExternalDisplay && Self.externalDisplayConnected()) { setFn(true) }
+                if retry { self.scheduleRepair(after: 2, retry: false) }
+            }
+        }
+        repair = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+    }
+
+    /// Whether a screen keeps room for the Dock at its bottom or sides (the menu bar is on top).
+    private static func dockSpaceReserved() -> Bool {
+        NSScreen.screens.contains { screen in
+            let frame = screen.frame, visible = screen.visibleFrame
+            return visible.minY > frame.minY + 1 || visible.minX > frame.minX + 1 || visible.maxX < frame.maxX - 1
         }
     }
 
