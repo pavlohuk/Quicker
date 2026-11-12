@@ -10,9 +10,9 @@ enum ScrollSmoothness: String, CaseIterable {
     /// Time constant of the easing: the remaining distance shrinks by e every `tau` seconds.
     var tau: Double {
         switch self {
-        case .low: return 0.05
-        case .medium: return 0.09
-        case .high: return 0.16
+        case .low: return 0.07
+        case .medium: return 0.12
+        case .high: return 0.2
         }
     }
 
@@ -44,8 +44,14 @@ final class SmoothScroller {
     private var link: CVDisplayLink?
 
     private enum Phase { case idle, touching, gliding }
+    private typealias Axes = (y: Double, x: Double)
     private var phase = Phase.idle
     private var sentFirst = false
+    /// Distance the wheel asked for that has not reached the glide yet. It is fed into
+    /// `remaining` gradually, so each notch speeds the page up softly instead of kicking it.
+    private var incoming = (y: 0.0, x: 0.0)
+    /// Share of `tau` over which a notch is fed in.
+    private static let leadIn = 0.45
     private var remaining = (y: 0.0, x: 0.0)
     private var carry = (y: 0.0, x: 0.0)
     /// Direction of the current glide on each axis (-1, 0, 1).
@@ -142,8 +148,16 @@ final class SmoothScroller {
     private func add(dy: Double, dx: Double, from event: CGEvent) {
         let reversed = dy * direction.y < 0 || dx * direction.x < 0
         // Turning the wheel back drops what is left in the old direction.
-        if dy != 0 { remaining.y = remaining.y * dy < 0 ? dy : remaining.y + dy; direction.y = dy < 0 ? -1 : 1 }
-        if dx != 0 { remaining.x = remaining.x * dx < 0 ? dx : remaining.x + dx; direction.x = dx < 0 ? -1 : 1 }
+        if dy != 0 {
+            if direction.y * dy < 0 { incoming.y = 0; remaining.y = 0; carry.y = 0 }
+            incoming.y += dy
+            direction.y = dy < 0 ? -1 : 1
+        }
+        if dx != 0 {
+            if direction.x * dx < 0 { incoming.x = 0; remaining.x = 0; carry.x = 0 }
+            incoming.x += dx
+            direction.x = dx < 0 ? -1 : 1
+        }
         template = event.copy()
         // Only a running app is a target; otherwise the frames go the usual way.
         let pid = pid_t(event.getIntegerValueField(.eventTargetUnixProcessID))
@@ -187,7 +201,15 @@ final class SmoothScroller {
             sentFirst = false
         }
 
-        let share = 1 - exp(-dt / Settings.shared.scrollSmoothness.tau)
+        let tau = Settings.shared.scrollSmoothness.tau
+        let feed = 1 - exp(-dt / (tau * Self.leadIn))
+        for axis in [\Axes.y, \Axes.x] {
+            var part = incoming[keyPath: axis] * feed
+            if abs(incoming[keyPath: axis]) < 0.5 { part = incoming[keyPath: axis] }
+            incoming[keyPath: axis] -= part
+            remaining[keyPath: axis] += part
+        }
+        let share = 1 - exp(-dt / tau)
         let y = step(&remaining.y, &carry.y, share)
         let x = step(&remaining.x, &carry.x, share)
         if y != 0 || x != 0 {
@@ -199,7 +221,7 @@ final class SmoothScroller {
             sentFirst = true
         }
 
-        if remaining.y == 0, remaining.x == 0 {
+        if remaining.y == 0, remaining.x == 0, incoming.y == 0, incoming.x == 0 {
             // Less than a pixel in all: nothing was posted, so there is no touch to end.
             if phase == .touching, !sentFirst { phase = .idle }
             if phase != .touching { finish() }
@@ -229,6 +251,7 @@ final class SmoothScroller {
         phase = .idle
         direction = (0, 0)
         template = nil
+        incoming = (0, 0)
         remaining = (0, 0)
         carry = (0, 0)
         stopLink()
