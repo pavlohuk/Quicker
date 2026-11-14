@@ -72,7 +72,7 @@ void is_ds_set_mouse_handler(ISMouseHandler handler);
 
 /// Called from the event tap for every key-down. Return true to swallow the key (its key-up is
 /// swallowed too). `flags` are CGEventFlags; `is_repeat` is set for auto-repeat key-downs.
-typedef bool (*ISKeyHandler)(int32_t keycode, uint64_t flags, bool is_repeat);
+typedef bool (*ISKeyHandler)(int32_t keycode, uint64_t flags, bool is_repeat, bool posted_by_app);
 void is_ds_set_key_handler(ISKeyHandler handler);
 
 /// Called from the event tap whenever the held modifiers change (`flags` are CGEventFlags).

@@ -433,7 +433,8 @@ static CGEventRef tap_callback(CGEventTapProxy proxy, CGEventType type, CGEventR
             return NULL;
         }
         bool is_repeat = CGEventGetIntegerValueField(event, kCGKeyboardEventAutorepeat) != 0;
-        if (g_key_handler && g_key_handler((int32_t)keycode, (uint64_t)CGEventGetFlags(event), is_repeat)) {
+        if (g_key_handler && g_key_handler((int32_t)keycode, (uint64_t)CGEventGetFlags(event), is_repeat,
+                                           CGEventGetIntegerValueField(event, kCGEventSourceUnixProcessID) != 0)) {
             g_swallowed_keys[keycode] = 1;
             return NULL;
         }

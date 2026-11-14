@@ -48,8 +48,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         is_ds_set_swipe_handler { direction, extra in
             AppDelegate.current?.handleNativeSwipe(direction: Int(direction), extra: extra)
         }
-        is_ds_set_key_handler { keycode, flags, isRepeat in
-            AppDelegate.current?.handleKey(keycode: keycode, flags: flags, isRepeat: isRepeat) ?? false
+        is_ds_set_key_handler { keycode, flags, isRepeat, postedByApp in
+            AppDelegate.current?.handleKey(keycode: keycode, flags: flags, isRepeat: isRepeat, postedByApp: postedByApp) ?? false
         }
         is_ds_set_flags_handler { flags in
             AppDelegate.current?.handleFlags(CGEventFlags(rawValue: flags)) ?? false
@@ -345,7 +345,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// modifier+←/→ and modifier+1…9. Returns true when the key was ours and must be swallowed.
-    private func handleKey(keycode: Int32, flags: UInt64, isRepeat: Bool) -> Bool {
+    private func handleKey(keycode: Int32, flags: UInt64, isRepeat: Bool, postedByApp: Bool) -> Bool {
         activationGuard.keyDown(keycode: keycode, flags: CGEventFlags(rawValue: flags), isRepeat: isRepeat)
 
         // Brightness as plain keys: F15 up and F14 down, the macOS shortcuts on keyboards without
@@ -360,6 +360,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let settings = Settings.shared
+        // ⌃← and ⌃→ typed by another app: mouse software (Logi Options+ gestures) switches
+        // Spaces by sending the system shortcut. Switch instantly instead of letting it slide.
+        if postedByApp, settings.enabled, keycode == Hotkeys.leftArrow || keycode == Hotkeys.rightArrow,
+           Hotkeys.modifiersMatch(flags, .control), !activationGuard.isSwitcherOpen {
+            if !isRepeat {
+                dropPendingFocus()
+                switcher.perform(keycode == Hotkeys.rightArrow ? .next : .previous)
+            }
+            return true
+        }
         guard settings.enabled, Hotkeys.modifiersMatch(flags, settings.hotkeyModifier) else { return false }
         // While the ⌘Tab switcher is open, arrows move its selection.
         guard !activationGuard.isSwitcherOpen else { return false }
