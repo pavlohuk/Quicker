@@ -118,7 +118,7 @@ bool is_spaces_info(ISSpaceInfo *out) {
     return ok;
 }
 
-int32_t is_spaces_app_window_indexes(int32_t pid, int32_t *out_indexes, uint32_t *out_windows, int32_t max) {
+int32_t is_spaces_app_window_indexes(int32_t pid, bool app_hidden, int32_t *out_indexes, uint32_t *out_windows, int32_t max) {
     if (!out_indexes || max <= 0 || pid <= 0 || !load_sl() || !S.spaces_for_windows) return 0;
 
     // Space ids of the display under the cursor, in Dock order.
@@ -168,8 +168,9 @@ int32_t is_spaces_app_window_indexes(int32_t pid, int32_t *out_indexes, uint32_t
         if (alpha <= 0) continue;
 
         // A closed, hidden or minimized window keeps its Space but is ordered out. Counting it
-        // would make an app look present on a Space where nothing of it is shown.
-        if (S.is_ordered_in) {
+        // would make an app look present on a Space where nothing of it is shown. All windows
+        // of a hidden app are ordered out, and they come back where they were once it is shown.
+        if (S.is_ordered_in && !app_hidden) {
             uint8_t ordered_in = 1;
             if (S.is_ordered_in(S.conn, (uint32_t)wid, &ordered_in) == 0 && !ordered_in) continue;
         }

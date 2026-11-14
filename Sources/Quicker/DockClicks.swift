@@ -77,7 +77,7 @@ final class DockClickInterceptor {
 
         var buffer = [Int32](repeating: 0, count: 64)
         var windows = [UInt32](repeating: 0, count: 64)
-        let found = Int(is_spaces_app_window_indexes(app.processIdentifier, &buffer, &windows, Int32(buffer.count)))
+        let found = Int(is_spaces_app_window_indexes(app.processIdentifier, app.isHidden, &buffer, &windows, Int32(buffer.count)))
         let indexes = buffer.prefix(found).map(Int.init)
         guard let target = indexes.first, !indexes.contains(state.current) else { return false }
 
@@ -101,7 +101,8 @@ final class DockClickInterceptor {
 
         // Put the app's window on top of its Space before going there, so the Space does not
         // first appear with another app's window in front.
-        let focused = is_focus_window(held.app.processIdentifier, held.window)
+        // Not for a hidden app: its windows are not shown until the Dock gets the click.
+        let focused = !held.app.isHidden && is_focus_window(held.app.processIdentifier, held.window)
         let name = held.app.localizedName ?? "pid \(held.app.processIdentifier)"
         // The WindowServer needs a moment to reorder the window before the Space appears.
         guard switcher.jump(toSpaceIndex: held.target, reason: "dock \(name)\(focused ? "" : " (no prefocus)")",

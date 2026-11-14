@@ -129,7 +129,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         var buffer = [Int32](repeating: 0, count: 64)
         var windows = [UInt32](repeating: 0, count: 64)
-        let found = Int(is_spaces_app_window_indexes(app.processIdentifier, &buffer, &windows, Int32(buffer.count)))
+        let found = Int(is_spaces_app_window_indexes(app.processIdentifier, app.isHidden, &buffer, &windows, Int32(buffer.count)))
         let indexes = buffer.prefix(found).map(Int.init)
         // No windows on this display, or already visible here (includes the app that macOS
         // activates on its own after one of our switches lands).
@@ -176,7 +176,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         var buffer = [Int32](repeating: 0, count: 64)
         var windows = [UInt32](repeating: 0, count: 64)
-        let found = Int(is_spaces_app_window_indexes(app.processIdentifier, &buffer, &windows, Int32(buffer.count)))
+        let found = Int(is_spaces_app_window_indexes(app.processIdentifier, app.isHidden, &buffer, &windows, Int32(buffer.count)))
         let indexes = buffer.prefix(found).map(Int.init)
         guard let target = indexes.first, !indexes.contains(state.current) else { return false }
 
@@ -243,6 +243,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let pid = focus.app.processIdentifier
         guard !focus.app.isTerminated, NSWorkspace.shared.frontmostApplication?.processIdentifier != pid,
               let landed = switcher.snapshot(usePrediction: false), landed.current == focus.target else { return }
+        if focus.app.isHidden { focus.app.unhide() }
         let element = AXUIElementCreateApplication(pid)
         let result = AXUIElementSetAttributeValue(element, kAXFrontmostAttribute as CFString, kCFBooleanTrue)
         log.info("refocused \(focus.app.localizedName ?? "pid \(pid)", privacy: .public): \(result.rawValue)")

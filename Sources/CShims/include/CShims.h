@@ -28,7 +28,9 @@ bool is_spaces_info(ISSpaceInfo *out);
 /// `pid`, most recently used window first, without duplicates. Returns how many were written.
 /// When `out_windows` is not NULL it receives, for each of those spaces, the id of the app's
 /// most recently used window there.
-int32_t is_spaces_app_window_indexes(int32_t pid, int32_t *out_indexes, uint32_t *out_windows, int32_t max);
+/// Windows that are ordered out (closed, minimized) are left out, unless `app_hidden` says the
+/// whole app is hidden: then every window is ordered out and counts.
+int32_t is_spaces_app_window_indexes(int32_t pid, bool app_hidden, int32_t *out_indexes, uint32_t *out_windows, int32_t max);
 
 /// Makes `window` of app `pid` the key window of the frontmost app through the WindowServer, the
 /// way a click on it would, without waiting for the app itself. Works for a window on a Space that
