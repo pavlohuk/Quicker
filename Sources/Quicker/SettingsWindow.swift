@@ -301,6 +301,13 @@ private struct DisplaysPane: View {
             } footer: {
                 Text(L("settings.footer.dock")).foregroundStyle(.secondary)
             }
+            Section {
+                Toggle(L("settings.layouts.remember"), isOn: model.binding(\.rememberWindowLayouts))
+            } header: {
+                Text(L("settings.layouts"))
+            } footer: {
+                Text(L("settings.footer.layouts")).foregroundStyle(.secondary)
+            }
         }
     }
 }

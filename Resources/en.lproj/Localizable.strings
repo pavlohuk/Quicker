@@ -64,6 +64,9 @@
 "settings.footer.brightness" = "The brightness keys change the display under the pointer, external monitors included, and show a brightness bar under the Quicker icon.";
 "settings.footer.video" = "Hides the menu bar on a full-screen Space while a video plays there. Only when the menu bar is set to stay visible in full screen.";
 "settings.footer.dock" = "Turns off Dock auto-hide while an external display is connected and turns it back on once only the built-in display is left.";
+"settings.layouts" = "Window Layout";
+"settings.layouts.remember" = "Remember for Each Display";
+"settings.footer.layouts" = "Remembers the position and size of every window, desktop by desktop, separately for the MacBook screen and for each external display setup. When a display is connected or disconnected, the windows go back to where you left them on that screen.";
 "settings.footer.smooth" = "Mouse wheel scrolling glides like a trackpad. Works with Logi Options+ and free-spinning wheels.";
 "menu.quit" = "Quit";
 

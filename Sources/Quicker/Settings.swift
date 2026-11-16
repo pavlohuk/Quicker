@@ -53,6 +53,7 @@ final class Settings {
         static let longSwipeSkipsMore = "longSwipeSkipsMore"
         static let brightnessKeys = "brightnessKeys"
         static let dockShownOnExternalDisplay = "dockShownOnExternalDisplay"
+        static let rememberWindowLayouts = "rememberWindowLayouts"
         static let smoothScroll = "smoothScroll"
         static let scrollSmoothness = "scrollSmoothness"
         static let scrollBounce = "scrollBounce"
@@ -76,6 +77,7 @@ final class Settings {
             Key.longSwipeSkipsMore: true,
             Key.brightnessKeys: true,
             Key.dockShownOnExternalDisplay: true,
+            Key.rememberWindowLayouts: true,
             Key.smoothScroll: true,
             Key.scrollSmoothness: ScrollSmoothness.medium.rawValue,
             Key.scrollBounce: false,
@@ -187,6 +189,13 @@ final class Settings {
     var dockShownOnExternalDisplay: Bool {
         get { defaults.bool(forKey: Key.dockShownOnExternalDisplay) }
         set { defaults.set(newValue, forKey: Key.dockShownOnExternalDisplay) }
+    }
+
+    /// Remember where every window is and how big, separately for each set of displays, and put
+    /// the windows back when the displays change.
+    var rememberWindowLayouts: Bool {
+        get { defaults.bool(forKey: Key.rememberWindowLayouts) }
+        set { defaults.set(newValue, forKey: Key.rememberWindowLayouts) }
     }
 
     var indicatorCorner: IndicatorCorner {

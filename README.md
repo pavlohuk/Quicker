@@ -6,6 +6,7 @@ A macOS menu bar app that makes switching between Spaces **instant, without the 
 - **Hotkeys.** ⌘1…⌘9 jumps straight to the Nth Space, and ⌘←/⌘→ moves to the neighbouring Space.
 - **Following apps.** ⌘Tab or a Dock click on an app whose windows are on another Space jumps there instantly.
 - **Indicator.** After every switch, a small overlay at the top of the screen names the Space you landed on.
+- **Window layout per display.** Window positions and sizes are remembered separately for the MacBook screen and for an external monitor, and come back when you connect or disconnect it.
 - **Full-screen video.** If you keep the menu bar visible in full-screen apps, it is hidden while a video plays in full screen.
 
 No SIP changes and no Dock patching are needed. The app is available in English and Ukrainian and follows the system language.
@@ -109,6 +110,17 @@ With "Automatically hide and show the menu bar" set to **Never**, the menu bar s
 - If the option is already set to hide the menu bar in full screen, Quicker leaves it alone.
 - A video playing inside a normal full-screen window, not in the player's own full screen, hides the menu bar as well.
 
+### Window layout per display
+
+Quicker remembers the position and size of every window on every desktop, separately for each set of connected displays: the MacBook screen alone, an external monitor, the two together. When a display is connected or disconnected, macOS squeezes and shifts the windows to fit. Once the displays settle, Quicker gives each window the frame it last had with that set of displays, so the layout you arranged for the monitor comes back on the monitor, and the one for the MacBook screen on the MacBook.
+
+- Nothing has to be saved by hand. The windows are noted every few seconds while the displays stay the same, and a layout is only remembered once it has stayed unchanged by a display change for a few seconds, so the frames macOS picks while the displays rearrange are never taken for yours.
+- Windows on desktops that are not on screen are put back too, without switching to them.
+- A window is recognised by its id while its app keeps running. After an app was relaunched, its windows take the frames remembered for that app on the same desktop.
+- The same monitor at another resolution, or placed on the other side of the MacBook, is a layout of its own.
+- Windows are not moved between desktops: macOS no longer lets another app do that without SIP changes. Full-screen and minimized windows are left alone.
+- The layouts are stored in `~/Library/Application Support/Quicker/WindowLayouts.json`. It can be turned off in the settings.
+
 ## Menu and settings
 
 The menu bar icon opens a short menu:
@@ -122,7 +134,7 @@ The settings window has a sidebar with four sections:
 
 - **General.** Whether Accessibility is granted and the system swipe between desktops is on, with a button to fix either, Launch at Login (uses `SMAppService`), and the version.
 - **Spaces.** Everything about switching: the master switch, the trackpad swipe (direction, longer swipe skips more Spaces), the hotkeys and their modifier, following the activated app (⌘Tab, Dock), and the Space indicator.
-- **Displays.** Brightness keys for the display under the pointer, hiding the menu bar over full-screen video, and keeping an auto-hiding Dock shown while an external display is connected.
+- **Displays.** Brightness keys for the display under the pointer, hiding the menu bar over full-screen video, keeping an auto-hiding Dock shown while an external display is connected, and remembering the window layout for each display.
 - **Mouse.** Smooth scrolling for mouse wheels, its smoothness, and an optional trackpad-like bounce at the edges.
 
 Settings are stored in the `com.pavlohuk.Quicker` defaults domain.

@@ -77,11 +77,18 @@ final class DockClickInterceptor {
 
         var buffer = [Int32](repeating: 0, count: 64)
         var windows = [UInt32](repeating: 0, count: 64)
-        let found = Int(is_spaces_app_window_indexes(app.processIdentifier, app.isHidden, &buffer, &windows, Int32(buffer.count)))
+        var found = Int(is_spaces_app_window_indexes(app.processIdentifier, false, &buffer, &windows, Int32(buffer.count)))
+        // Nothing of the app is shown anywhere: it is hidden, or its windows are closed or
+        // minimized. The click brings a window back on the Space it was on, and the Dock slides
+        // there, so go by those windows. They cannot be raised before they are shown.
+        let shown = found > 0
+        if !shown {
+            found = Int(is_spaces_app_window_indexes(app.processIdentifier, true, &buffer, &windows, Int32(buffer.count)))
+        }
         let indexes = buffer.prefix(found).map(Int.init)
         guard let target = indexes.first, !indexes.contains(state.current) else { return false }
 
-        pending = Pending(app: app, location: location, flags: flags, target: target, window: windows[0])
+        pending = Pending(app: app, location: location, flags: flags, target: target, window: shown ? windows[0] : 0)
         let work = DispatchWorkItem { [weak self] in self?.giveBack(dragTo: nil) }
         holdWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + longPress, execute: work)
@@ -101,8 +108,7 @@ final class DockClickInterceptor {
 
         // Put the app's window on top of its Space before going there, so the Space does not
         // first appear with another app's window in front.
-        // Not for a hidden app: its windows are not shown until the Dock gets the click.
-        let focused = !held.app.isHidden && is_focus_window(held.app.processIdentifier, held.window)
+        let focused = held.window != 0 && is_focus_window(held.app.processIdentifier, held.window)
         let name = held.app.localizedName ?? "pid \(held.app.processIdentifier)"
         // The WindowServer needs a moment to reorder the window before the Space appears.
         guard switcher.jump(toSpaceIndex: held.target, reason: "dock \(name)\(focused ? "" : " (no prefocus)")",

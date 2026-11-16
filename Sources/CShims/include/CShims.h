@@ -28,9 +28,9 @@ bool is_spaces_info(ISSpaceInfo *out);
 /// `pid`, most recently used window first, without duplicates. Returns how many were written.
 /// When `out_windows` is not NULL it receives, for each of those spaces, the id of the app's
 /// most recently used window there.
-/// Windows that are ordered out (closed, minimized) are left out, unless `app_hidden` says the
-/// whole app is hidden: then every window is ordered out and counts.
-int32_t is_spaces_app_window_indexes(int32_t pid, bool app_hidden, int32_t *out_indexes, uint32_t *out_windows, int32_t max);
+/// Windows that are ordered out (closed, minimized, or of a hidden app) are left out unless
+/// `include_ordered_out` is set; those that no longer belong to any Space never count.
+int32_t is_spaces_app_window_indexes(int32_t pid, bool include_ordered_out, int32_t *out_indexes, uint32_t *out_windows, int32_t max);
 
 /// Makes `window` of app `pid` the key window of the frontmost app through the WindowServer, the
 /// way a click on it would, without waiting for the app itself. Works for a window on a Space that
@@ -40,6 +40,25 @@ bool is_focus_window(int32_t pid, uint32_t window);
 /// Pids of the running apps, most recently active first, as LaunchServices keeps them: the order
 /// of the ⌘Tab switcher. Returns how many were written, or -1 when the call is unavailable.
 int is_front_to_back_pids(int32_t *out, int max);
+
+/// A normal window of any app that sits on exactly one desktop (not a full-screen Space).
+typedef struct {
+    uint32_t window;
+    int32_t pid;
+    int32_t desktop;    // zero-based position of its desktop among the desktops of its display
+    bool ordered_in;    // false for a closed, minimized or hidden window
+    double x, y, width, height;  // global top-left coordinates, as Accessibility uses
+    char display[64];   // identifier of the display that desktop belongs to
+} ISWindowInfo;
+
+/// Lists those windows, front to back, on every desktop. Returns how many were written.
+int32_t is_windows_snapshot(ISWindowInfo *out, int32_t max);
+
+/// Window id behind an Accessibility window element (AXUIElementRef); 0 when unknown.
+uint32_t is_ax_window_id(const void *element);
+/// Accessibility element number `index` of app `pid`, retained, or NULL. Going through the
+/// numbers reaches the windows on other Spaces, which the app's window list leaves out.
+const void *is_ax_element_create(int32_t pid, uint64_t index);
 
 // ---- Dock swipe (synthetic gesture + interception of the native one) ----
 

@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let brightnessHUD = BrightnessHUD()
     private let dockAutoHide = DockAutoHide()
     private let smoothScroller = SmoothScroller()
+    private let windowLayouts = WindowLayouts()
     /// Brightness keys whose key-down Quicker took, so their key-up is taken too.
     private var takenBrightnessKeys: Set<Int> = []
     /// Target of our own switch, shown once the Dock has actually landed there.
@@ -71,6 +72,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             is_ds_set_intercept(Settings.shared.enabled)
             self?.videoMenuBar.update(self?.switcher.snapshot(usePrediction: false))
             self?.dockAutoHide.update()
+            self?.windowLayouts.update()
         }
         statusBar.isAccessibilityGranted = { AXIsProcessTrusted() }
         statusBar.isInterceptActive = { is_ds_tap_installed() }
@@ -96,6 +98,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         startInterception()
         videoMenuBar.update(switcher.snapshot(usePrediction: false))
         dockAutoHide.update()
+        windowLayouts.update()
     }
 
     /// Opening Quicker again (from Finder, Spotlight or the Dock) shows its settings.
@@ -274,6 +277,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         switcher.spaceDidChange(landed)
         videoMenuBar.update(landed)
         dockClicks.spaceDidChange(to: landed.current)
+        windowLayouts.spaceDidChange()
         if let held = heldRelease, held.target == landed.current {
             scheduleRelease(after: 0.03)
         }

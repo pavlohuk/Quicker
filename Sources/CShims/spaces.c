@@ -118,7 +118,7 @@ bool is_spaces_info(ISSpaceInfo *out) {
     return ok;
 }
 
-int32_t is_spaces_app_window_indexes(int32_t pid, bool app_hidden, int32_t *out_indexes, uint32_t *out_windows, int32_t max) {
+int32_t is_spaces_app_window_indexes(int32_t pid, bool include_ordered_out, int32_t *out_indexes, uint32_t *out_windows, int32_t max) {
     if (!out_indexes || max <= 0 || pid <= 0 || !load_sl() || !S.spaces_for_windows) return 0;
 
     // Space ids of the display under the cursor, in Dock order.
@@ -168,9 +168,9 @@ int32_t is_spaces_app_window_indexes(int32_t pid, bool app_hidden, int32_t *out_
         if (alpha <= 0) continue;
 
         // A closed, hidden or minimized window keeps its Space but is ordered out. Counting it
-        // would make an app look present on a Space where nothing of it is shown. All windows
-        // of a hidden app are ordered out, and they come back where they were once it is shown.
-        if (S.is_ordered_in && !app_hidden) {
+        // would make an app look present on a Space where nothing of it is shown. Unless asked
+        // for: such a window still belongs to a Space and comes back there when it is shown again.
+        if (S.is_ordered_in && !include_ordered_out) {
             uint8_t ordered_in = 1;
             if (S.is_ordered_in(S.conn, (uint32_t)wid, &ordered_in) == 0 && !ordered_in) continue;
         }
@@ -197,6 +197,125 @@ int32_t is_spaces_app_window_indexes(int32_t pid, bool app_hidden, int32_t *out_
     }
     CFRelease(windows);
     return written;
+}
+
+// ---- Windows of every app, with their desktops ----
+
+int32_t is_windows_snapshot(ISWindowInfo *out, int32_t max) {
+    if (!out || max <= 0 || !load_sl() || !S.spaces_for_windows) return 0;
+
+    // Desktops of every display: space id, its position among the display's desktops, the display.
+    enum { MAX_DESKTOPS = 256 };
+    static uint64_t ids[MAX_DESKTOPS];
+    static int32_t ordinals[MAX_DESKTOPS];
+    static char names[MAX_DESKTOPS][64];
+    int ndesktops = 0;
+    CFArrayRef displays = S.copy_spaces(S.conn);
+    if (!displays) return 0;
+    for (CFIndex d = 0; d < CFArrayGetCount(displays); d++) {
+        CFDictionaryRef display = CFArrayGetValueAtIndex(displays, d);
+        CFStringRef ident = CFDictionaryGetValue(display, CFSTR("Display Identifier"));
+        CFArrayRef spaces = CFDictionaryGetValue(display, CFSTR("Spaces"));
+        if (!ident || !spaces || CFGetTypeID(spaces) != CFArrayGetTypeID()) continue;
+        int32_t ordinal = 0;
+        for (CFIndex i = 0; i < CFArrayGetCount(spaces) && ndesktops < MAX_DESKTOPS; i++) {
+            CFDictionaryRef s = CFArrayGetValueAtIndex(spaces, i);
+            CFNumberRef idn = CFDictionaryGetValue(s, CFSTR("id64"));
+            CFNumberRef tn = CFDictionaryGetValue(s, CFSTR("type"));
+            int32_t type = 0;
+            if (tn) CFNumberGetValue(tn, kCFNumberSInt32Type, &type);
+            if (!idn || type != 0) continue;
+            CFNumberGetValue(idn, kCFNumberSInt64Type, &ids[ndesktops]);
+            ordinals[ndesktops] = ordinal++;
+            if (!CFStringGetCString(ident, names[ndesktops], sizeof(names[0]), kCFStringEncodingUTF8)) names[ndesktops][0] = 0;
+            ndesktops++;
+        }
+    }
+    CFRelease(displays);
+    if (ndesktops == 0) return 0;
+
+    CFArrayRef windows = CGWindowListCopyWindowInfo(kCGWindowListOptionAll | kCGWindowListExcludeDesktopElements, kCGNullWindowID);
+    if (!windows) return 0;
+    int32_t written = 0;
+    CFIndex count = CFArrayGetCount(windows);
+    for (CFIndex i = 0; i < count && written < max; i++) {
+        CFDictionaryRef w = CFArrayGetValueAtIndex(windows, i);
+        int32_t owner = 0, layer = -1, wid = 0;
+        CFNumberRef on = CFDictionaryGetValue(w, CFSTR("kCGWindowOwnerPID"));
+        CFNumberRef ln = CFDictionaryGetValue(w, CFSTR("kCGWindowLayer"));
+        CFNumberRef wn = CFDictionaryGetValue(w, CFSTR("kCGWindowNumber"));
+        if (!on || !ln || !wn) continue;
+        CFNumberGetValue(on, kCFNumberSInt32Type, &owner);
+        CFNumberGetValue(ln, kCFNumberSInt32Type, &layer);
+        CFNumberGetValue(wn, kCFNumberSInt32Type, &wid);
+        if (layer != 0) continue;
+
+        // Skip helper and placeholder windows that are not real documents.
+        CGRect bounds = CGRectZero;
+        CFDictionaryRef bd = CFDictionaryGetValue(w, CFSTR("kCGWindowBounds"));
+        if (!bd || !CGRectMakeWithDictionaryRepresentation(bd, &bounds)) continue;
+        if (bounds.size.width < 100 || bounds.size.height < 100) continue;
+        double alpha = 1;
+        CFNumberRef an = CFDictionaryGetValue(w, CFSTR("kCGWindowAlpha"));
+        if (an) CFNumberGetValue(an, kCFNumberDoubleType, &alpha);
+        if (alpha <= 0) continue;
+
+        // On exactly one Space, and that one a desktop: not a window shown on every Space, and
+        // not one in full screen.
+        CFArrayRef one = CFArrayCreate(NULL, (const void **)&wn, 1, &kCFTypeArrayCallBacks);
+        CFArrayRef ws = S.spaces_for_windows(S.conn, 0x7, one);
+        CFRelease(one);
+        if (!ws) continue;
+        int found = -1;
+        if (CFArrayGetCount(ws) == 1) {
+            uint64_t sid = 0;
+            CFNumberGetValue(CFArrayGetValueAtIndex(ws, 0), kCFNumberSInt64Type, &sid);
+            for (int k = 0; k < ndesktops; k++) if (ids[k] == sid) { found = k; break; }
+        }
+        CFRelease(ws);
+        if (found < 0) continue;
+
+        ISWindowInfo *info = &out[written++];
+        memset(info, 0, sizeof(*info));
+        info->window = (uint32_t)wid;
+        info->pid = owner;
+        info->desktop = ordinals[found];
+        uint8_t ordered_in = 1;
+        if (S.is_ordered_in && S.is_ordered_in(S.conn, (uint32_t)wid, &ordered_in) != 0) ordered_in = 1;
+        info->ordered_in = ordered_in != 0;
+        info->x = bounds.origin.x;
+        info->y = bounds.origin.y;
+        info->width = bounds.size.width;
+        info->height = bounds.size.height;
+        strlcpy(info->display, names[found], sizeof(info->display));
+    }
+    CFRelease(windows);
+    return written;
+}
+
+// Private Accessibility calls: the window id of an element, and an element by its number.
+extern int _AXUIElementGetWindow(const void *element, uint32_t *window);
+extern const void *_AXUIElementCreateWithRemoteToken(CFDataRef token);
+
+uint32_t is_ax_window_id(const void *element) {
+    uint32_t window = 0;
+    if (!element || _AXUIElementGetWindow(element, &window) != 0) return 0;
+    return window;
+}
+
+const void *is_ax_element_create(int32_t pid, uint64_t index) {
+    // The token of an element: pid, zero, 'coco', element number.
+    uint8_t token[20];
+    int32_t zero = 0, magic = 0x636f636f;
+    memcpy(token, &pid, 4);
+    memcpy(token + 4, &zero, 4);
+    memcpy(token + 8, &magic, 4);
+    memcpy(token + 12, &index, 8);
+    CFDataRef data = CFDataCreate(NULL, token, sizeof(token));
+    if (!data) return NULL;
+    const void *element = _AXUIElementCreateWithRemoteToken(data);
+    CFRelease(data);
+    return element;
 }
 
 // ---- Focusing another app's window ----
